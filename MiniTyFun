@@ -1,0 +1,82 @@
+(* MiniTyFun.ml *)
+module MiniTyFun = struct
+
+  (* Types *)
+  type ty =
+    | IntType
+    | BoolType
+    | FunType of ty * ty
+
+  (* Operators *)
+  type op =
+    | Add
+    | Sub
+    | Mul
+    | LessThan
+    | And
+    | Not
+
+  (* Terms with type annotations *)
+  type term =
+    | Int of int
+    | Bool of bool
+    | Var of string
+    | Fun of string * ty * term
+    | App of term * term
+    | BinOp of op * term * term
+    | If of term * term * term
+    | Let of string * term * term
+    | LetFun of string * string * ty * ty * term * term
+
+  (* Typing context (maps variables to their types) *)
+  type context = (string * ty) list
+
+  (* Lookup a variable's type in the context *)
+  let rec lookup_type (x : string) (ctx : context) : ty option =
+    match ctx with
+    | [] -> None
+    | (y, t) :: ctx' -> if x = y then Some t else lookup_type x ctx'
+
+  (* Type-checking function *)
+  let rec type_check (ctx : context) (t : term) : ty option =
+    match t with
+    | Int _ -> Some IntType
+    | Bool _ -> Some BoolType
+    | Var x -> lookup_type x ctx
+
+    | BinOp (op, t1, t2) ->
+        (match op, type_check ctx t1, type_check ctx t2 with
+         | (Add | Sub | Mul), Some IntType, Some IntType -> Some IntType
+         | LessThan, Some IntType, Some IntType -> Some BoolType
+         | And, Some BoolType, Some BoolType -> Some BoolType
+         | Not, Some BoolType, _ -> Some BoolType
+         | _ -> None)
+
+    | If (t1, t2, t3) ->
+        (match type_check ctx t1, type_check ctx t2, type_check ctx t3 with
+         | Some BoolType, Some ty2, Some ty3 when ty2 = ty3 -> Some ty2
+         | _ -> None)
+
+    | Fun (x, ty_x, body) ->
+        let ctx' = (x, ty_x) :: ctx in
+        (match type_check ctx' body with
+         | Some ty_body -> Some (FunType (ty_x, ty_body))
+         | None -> None)
+
+    | App (t1, t2) ->
+        (match type_check ctx t1, type_check ctx t2 with
+         | Some (FunType (ty_param, ty_ret)), Some ty_arg when ty_param = ty_arg -> Some ty_ret
+         | _ -> None)
+
+    | Let (x, t1, t2) ->
+        (match type_check ctx t1 with
+         | Some ty1 -> type_check ((x, ty1) :: ctx) t2
+         | None -> None)
+
+    | LetFun (f, x, ty_x, ty_ret, t1, t2) ->
+        let ctx' = (f, FunType (ty_x, ty_ret)) :: (x, ty_x) :: ctx in
+        (match type_check ctx' t1 with
+         | Some ty1 when ty1 = ty_ret -> type_check ((f, FunType (ty_x, ty_ret)) :: ctx) t2
+         | _ -> None)
+
+end
