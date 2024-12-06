@@ -8,13 +8,20 @@ type term =
   | Boolean of bool
   | Variable of string
   | Function of string * term
-  | App of term * term
+  | FunctionApplication of term * term
   | Add of term * term
   | Sub of term * term
   | Mul of term * term
-  | LessThan of term * term
+  | Div of term * term             (* a / a *)
+  | Mod of term * term             (* a % a *)
   | And of term * term
+  | Or of term * term 
   | Not of term
+  | LessThan of term * term
+  | LessThanEqual of term * term   (* a <= a *)
+  | GreaterThan of term * term     (* a > a *)
+  | GreaterThanEqual of term * term (* a >= a *)
+  | Equal of term * term (* a == a *)
   | If of term * term * term
   | Let of string * term * term
   | LetFun of string * string * term * term
@@ -22,37 +29,37 @@ type term =
 
   (* Defining the environment ( = the memory) as a Map *)
   module StringMap = Map.Make(String)
-  type mem_value =
-    | MemInt of int
-    | MemBool of bool
+  type memoryAllowedValues =
+    | MemInteger of int
+    | MemBoolean of bool
     | Closure of string * term * memory
     | RecClosure of string * string * term * memory
-  and memory = mem_value StringMap.t
+  and memory = memoryAllowedValues StringMap.t
   
   (* Lookup a variable in the environment *)
-  let lookup (x : string) (m : memory) : mem_value =
+  let lookup (x : string) (m : memory) : memoryAllowedValues =
     try StringMap.find x m
     with Not_found -> failwith ("Variable not found: " ^ x)
   
   (* Update the environment with a new variable binding *)
-  let update (x : string) (v : mem_value) (m : memory) : memory =
+  let update (x : string) (v : memoryAllowedValues) (m : memory) : memory =
     StringMap.add x v m
 
 (* Evaluating terms *)
-  let rec eval_term (t : term) (m : memory) : mem_value =
+  let rec eval_term (t : term) (m : memory) : memoryAllowedValues =
     match t with
-    | Integer n -> MemInt n
-    | Boolean b -> MemBool b
+    | Integer n -> MemInteger n
+    | Boolean b -> MemBoolean b
     | Variable x -> lookup x m
     | Function (x, body) -> Closure (x, body, m)
-    | App (t1, t2) ->
-        let closure = eval_term t1 m in
-        let input = eval_term t2 m in
+    | FunctionApplication (t1, t2) ->
+        let closure = eval_term t1 m in (* t1 is the function *)
+        let input = eval_term t2 m in (* t2 is the input *)
         (match closure with
-         | Closure (x, body, closure_env) ->
+         | Closure (x, body, closure_env) -> (* if t1 evaluates to a closure, binds x to the result of t2 in the environment and evaluate the body*)
              let new_env = update x input closure_env in
              eval_term body new_env
-         | RecClosure (f, x, body, closure_env) ->
+         | RecClosure (f, x, body, closure_env) -> (* If t1 evaluates to a RecClosure, it binds both the function name (f) and parameter (x) to their respective values in the closure's environment and evaluates the body. *)
              let new_env = update x input (update f closure closure_env) in
              eval_term body new_env
          | _ -> failwith "Application error: expected a function but got a non-function value")
@@ -60,44 +67,90 @@ type term =
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
         (match v1, v2 with
-         | MemInt n1, MemInt n2 -> MemInt (n1 + n2)
+         | MemInteger n1, MemInteger n2 -> MemInteger (n1 + n2)
          | _ -> failwith "Type error: addition requires two integers")
     | Sub (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
         (match v1, v2 with
-         | MemInt n1, MemInt n2 -> MemInt (n1 - n2)
+         | MemInteger n1, MemInteger n2 -> MemInteger (n1 - n2)
          | _ -> failwith "Type error: subtraction requires two integers")
     | Mul (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
         (match v1, v2 with
-         | MemInt n1, MemInt n2 -> MemInt (n1 * n2)
+         | MemInteger n1, MemInteger n2 -> MemInteger (n1 * n2)
          | _ -> failwith "Type error: multiplication requires two integers")
-    | LessThan (t1, t2) ->
+    | Div (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
         (match v1, v2 with
-         | MemInt n1, MemInt n2 -> MemBool (n1 < n2)
-         | _ -> failwith "Type error: comparison requires two integers")
+         | MemInteger n1, MemInteger n2 -> 
+          if n2 = 0 then failwith "Error: Division by zero"  
+          else MemInteger (n1 / n2)
+         | _ -> failwith "Type error: division requires two integers")
+    | Mod (t1, t2) ->
+        let v1 = eval_term t1 m in
+        let v2 = eval_term t2 m in
+        (match v1, v2 with
+         | MemInteger n1, MemInteger n2 -> 
+            if n2 = 0 then failwith "Error: Modulo by zero"  
+            else MemInteger (n1 mod n2)
+         | _ -> failwith "Type error: multiplication requires two integers")
     | And (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
         (match v1, v2 with
-         | MemBool b1, MemBool b2 -> MemBool (b1 && b2)
+         | MemBoolean b1, MemBoolean b2 -> MemBoolean (b1 && b2)
          | _ -> failwith "Type error: logical 'and' requires two booleans")
-    | Not t1 ->
-        let v = eval_term t1 m in
-        (match v with
-         | MemBool b -> MemBool (not b)
-         | _ -> failwith "Type error: logical 'not' requires a boolean")
+    | Or (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+      | MemBoolean b1, MemBoolean b2 -> MemBoolean (b1 || b2)
+      | _ -> failwith "Type error: logical 'or' requires two booleans")
+    | Not (t1) ->
+        let v1 = eval_term t1 m in
+        (match v1 with
+        | MemBoolean b1 -> MemBoolean (not b1)
+        | _ -> failwith "Type error: logical 'not' requires a boolean")
+    | LessThan (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+       | MemInteger n1, MemInteger n2 -> MemBoolean (n1 < n2)
+       | _ -> failwith "Type error: comparison < requires two integers")
+    | LessThanEqual (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+       | MemInteger n1, MemInteger n2 -> MemBoolean (n1 <= n2)
+       | _ -> failwith "Type error: comparison <= requires two integers")
+    | GreaterThan (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+       | MemInteger n1, MemInteger n2 -> MemBoolean (n1 > n2)
+       | _ -> failwith "Type error: comparison > requires two integers")
+    | GreaterThanEqual (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+       | MemInteger n1, MemInteger n2 -> MemBoolean (n1 >= n2)
+       | _ -> failwith "Type error: comparison >= requires two integers")
+    | Equal (t1, t2) ->
+      let v1 = eval_term t1 m in
+      let v2 = eval_term t2 m in
+      (match v1, v2 with
+       | MemInteger n1, MemInteger n2 -> MemBoolean (n1 == n2)
+       | _ -> failwith "Type error: comparison == requires two integers")
     | If (t1, t2, t3) ->
         let cond = eval_term t1 m in
         (match cond with
-         | MemBool true -> eval_term t2 m
-         | MemBool false -> eval_term t3 m
+         | MemBoolean true -> eval_term t2 m
+         | MemBoolean false -> eval_term t3 m
          | _ -> failwith "Type error: 'if' condition must be a boolean")
-    | Let (x, t1, t2) ->
+    | Let (x, t1, t2) -> (*2 consecutive assignment to same variable x *)
         let v1 = eval_term t1 m in
         let m2 = update x v1 m in
         eval_term t2 m2

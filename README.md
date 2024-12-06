@@ -1,2 +1,2 @@
 # lci_project
-LCI project, year 2024/2025
+LCI (Languages, Compilers and Interpreters), year 2024/2025

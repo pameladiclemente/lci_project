@@ -66,7 +66,6 @@ let rec eval_a_exp (a : a_exp) (m : memory) : int =
   | Mod (a1, a2) ->
       let v2 = eval_a_exp a2 m in
       if v2 = 0 then failwith "Modulo by zero" else eval_a_exp a1 m mod v2
-  | _ -> failwith "Invalid arithmetic expression"
 
 
   (* Evaluating a boolean expression *)
@@ -81,7 +80,6 @@ let rec eval_a_exp (a : a_exp) (m : memory) : int =
   | GreaterThan (a1, a2) -> eval_a_exp a1 m > eval_a_exp a2 m
   | GreaterThanEqual (a1, a2) -> eval_a_exp a1 m >= eval_a_exp a2 m
   | Equal (a1, a2) -> eval_a_exp a1 m == eval_a_exp a2 m
-  | _ -> failwith "Invalid boolean expression"
   
 (* Evaluating a command *)
 let rec eval_cmd (c : cmd) (m : memory) : memory =
@@ -100,7 +98,6 @@ let rec eval_cmd (c : cmd) (m : memory) : memory =
         if eval_b_exp b m' then loop (eval_cmd c1 m') else m'
       in
       loop m
-  | _ -> failwith "Invalid command"
 
 (* Evaluating a program *)
 let eval_program (p : program) (i : int) : int =
