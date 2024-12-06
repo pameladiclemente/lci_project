@@ -7,18 +7,25 @@ that given a MiniTyFun term returns Someτ if τ is its type or None if it canno
 module MiniTyFun = struct
 
   (* Types *)
-  type ty =
-    | IntType
-    | BoolType
-    | FunType of ty * ty
+  type allowed_types =
+    | IntType 
+    | BoolType 
+    | FunType of allowed_types * allowed_types
 
   (* Operators *)
   type op =
     | Add
     | Sub
     | Mul
+    | Div
+    | Mod
     | LessThan
+    | LessThanEqual   
+    | GreaterThan     
+    | GreaterThanEqual 
+    | Equal
     | And
+    | Or
     | Not
 
   (* Terms with type annotations *)
@@ -26,68 +33,94 @@ module MiniTyFun = struct
     | Int of int
     | Bool of bool
     | Var of string
-    | Fun of string * ty * term
+    | Add of term * term
+    | Sub of term * term
+    | Mul of term * term
+    | Div of term * term
+    | Mod of term * term
+    | LessThan of term * term
+    | LessThanEqual of term * term
+    | GreaterThan of term * term
+    | GreaterThanEqual of term * term
+    | Equal of term * term
+    | And of term * term
+    | Or of term * term
+    | Not of term
+    | Fun of string * allowed_types * term
     | App of term * term
-    | BinOp of op * term * term
     | If of term * term * term
     | Let of string * term * term
-    | LetFun of string * string * ty * ty * term * term
+    | LetFun of string * string * allowed_types * allowed_types * term * term
+
 
   (* Defining the environment ( = the memory) as a Map *)
   (* Typing context: mapping variables to their types *)
   module StringMap = Map.Make(String)
-  type memory = ty StringMap.t
+  type memory = allowed_types StringMap.t
 
   (* Lookup a variable's type in the context *)
-  let lookup_type (x : string) (ctx : memory) : ty =
+  let lookup_type (x : string) (ctx : memory) : allowed_types =
     try StringMap.find x ctx
     with Not_found -> failwith ("Variable '" ^ x ^ "' is not defined")
 
   (* Evaluating types *)
-  let rec type_check (ctx : memory) (t : term) : ty =
+  let rec type_check (mem : memory) (t : term) : allowed_types =
     match t with
-    | Int _ -> IntType
-    | Bool _ -> BoolType
-    | Var x -> lookup_type x ctx
-
-    | BinOp (op, t1, t2) ->
-        (match op, type_check ctx t1, type_check ctx t2 with
-         | (Add | Sub | Mul), IntType, IntType -> IntType
-         | LessThan, IntType, IntType -> BoolType
-         | And, BoolType, BoolType -> BoolType
-         | Not, BoolType, _ -> BoolType
-         | _ -> failwith "Type error: invalid operands for binary operation")
-
+    | Int n -> IntType 
+    | Bool b -> BoolType 
+    | Var x -> lookup_type x mem
+    | Add (t1, t2)
+    | Sub (t1, t2)
+    | Mul (t1, t2)
+    | Div (t1, t2)
+    | Mod (t1, t2) ->
+        (match (type_check mem t1, type_check mem t2) with
+          | (IntType, IntType) -> IntType 
+          | _ -> failwith "Type error: arithmetic operations require both integers")
+    | LessThan (t1, t2)
+    | LessThanEqual (t1, t2)
+    | GreaterThan (t1, t2)
+    | GreaterThanEqual (t1, t2)
+    | Equal (t1, t2) ->
+        (match (type_check mem t1, type_check mem t2) with
+          | (IntType, IntType) -> BoolType
+          | _ -> failwith "Type error: comparison operations require both integers")
+    | And (t1, t2)
+    | Or (t1, t2) ->
+        (match (type_check mem t1, type_check mem t2) with
+          | (BoolType, BoolType) -> BoolType 
+          | _ -> failwith "Type error: logical operations require both booleans")
+    | Not t ->
+        (match type_check mem t with
+          | BoolType -> BoolType
+          | _ -> failwith "Type error: 'not' requires a boolean")
     | If (t1, t2, t3) ->
-        let cond_ty = type_check ctx t1 in
-        let then_ty = type_check ctx t2 in
-        let else_ty = type_check ctx t3 in
+        let cond_ty = type_check mem t1 in
+        let then_ty = type_check mem t2 in
+        let else_ty = type_check mem t3 in
         if cond_ty = BoolType then
           if then_ty = else_ty then then_ty
           else failwith "Type error: branches of 'if' must have the same type"
         else failwith "Type error: 'if' condition must be of type bool"
-
     | Fun (x, ty_x, body) ->
-        let ctx' = StringMap.add x ty_x ctx in
-        let ty_body = type_check ctx' body in
+        let mem' = StringMap.add x ty_x mem in
+        let ty_body = type_check mem' body in
         FunType (ty_x, ty_body)
-
     | App (t1, t2) ->
-        (match type_check ctx t1 with
+        (match type_check mem t1 with
          | FunType (ty_param, ty_ret) ->
-             let ty_arg = type_check ctx t2 in
+             let ty_arg = type_check mem t2 in
              if ty_param = ty_arg then ty_ret
              else failwith "Type error: function argument type mismatch"
          | _ -> failwith "Type error: expected a function in application")
     | Let (x, t1, t2) ->
-        let ty1 = type_check ctx t1 in
-        let ctx' = StringMap.add x ty1 ctx in
-        type_check ctx' t2
+        let ty1 = type_check mem t1 in
+        let mem' = StringMap.add x ty1 mem in
+        type_check mem' t2
     | LetFun (f, x, ty_x, ty_ret, t1, t2) ->
-        let ctx' = StringMap.add f (FunType (ty_x, ty_ret)) (StringMap.add x ty_x ctx) in
-        let ty_body = type_check ctx' t1 in
+        let mem' = StringMap.add f (FunType (ty_x, ty_ret)) (StringMap.add x ty_x mem) in
+        let ty_body = type_check mem' t1 in
         if ty_body = ty_ret then
-          type_check (StringMap.add f (FunType (ty_x, ty_ret)) ctx) t2
+          type_check (StringMap.add f (FunType (ty_x, ty_ret)) mem) t2
         else failwith "Type error: recursive function return type mismatch"
-
 end
