@@ -107,3 +107,4 @@ let eval_program (p : program) (i : int) : int =
       let m2 = eval_cmd body m1 in
       try StringMap.find output m2
       with Not_found -> failwith ("Output variable not found: " ^ output)
+

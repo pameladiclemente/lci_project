@@ -17,13 +17,14 @@
 %type <term> term
 %type <term> program
 
-%start program 
+%start program
 
-%left AND OR 
 %right NOT
+%left AND OR 
+%nonassoc IN
 %nonassoc LT LE GT GE EQ
-%left PLUS MINUS 
-%left TIMES DIVIDE MODULO  
+%left TIMES DIVIDE MODULO 
+%left PLUS MINUS  
 %right ARROW
 
 %%
@@ -39,7 +40,7 @@ term:
   { Boolean(b) } 
 | x = IDENT 
   { Variable(x) }
-| IF; b = term; THEN; b_true = term; ELSE; b_false = term 
+| IF; b = term; THEN; LPAREN; b_true = term; RPAREN; ELSE; LPAREN; b_false = term; RPAREN
   { If(b, b_true, b_false) } // if b then b_true else b_false
 | NOT; b = term 
   { Not(b) } //not b
@@ -67,15 +68,15 @@ term:
   { Div(i1, i2) } //i1 / i2
 | i1 = term; MODULO; i2 = term
   { Mod(i1, i2) } //i1 % i2
-| LPAREN; exp = term; RPAREN 
-  { (exp) } //(exp)
+| LPAREN; t = term; RPAREN 
+  { (t) } //(exp)
 | LET; f = IDENT; ASSIGN; t1 = term; IN; t2 = term
   { Let(f, t1, t2) }
 | LETFUN; f = IDENT; x = IDENT; ASSIGN; t1 = term; IN; t2 = term
   { LetFun(f, x, t1, t2) }
 | FUN; x = IDENT; ARROW; b = term
   { Function(x, b) }
-| t1 = term; t2 = term
+| LPAREN; t1 = term; t2 = term; RPAREN
   { FunctionApplication(t1, t2) }
 
 
