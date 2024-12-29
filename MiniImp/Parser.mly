@@ -11,7 +11,7 @@
 %token AND OR NOT
 %token LPAREN RPAREN
 %token DEF MAIN WITH INPUT OUTPUT AS
-%token SKIP IF THEN ELSE WHILE DO
+%token SKIP IF THEN ELSE WHILE DO 
 %token ASSIGN SEQUENCE
 %token EOF
 
@@ -22,12 +22,12 @@
 
 %start program 
 
-%right SEQUENCE  
-%right NOT       
+%right SEQUENCE
+%right NOT
 %left AND        
-%left OR         
+%left OR     
+%left TIMES DIVIDE MODULO      
 %left PLUS MINUS 
-%left TIMES DIVIDE MODULO  
 
 %%
 
@@ -38,19 +38,20 @@ program:
 cmd:
   | SKIP 
     { Skip } //skip 
-  | a = IDENT; ASSIGN; eval_a = a_exp 
+  | a = IDENT; ASSIGN; eval_a = a_exp; 
     { Assign(a, eval_a) } //x := a
-  | eval_c1 = cmd; SEQUENCE; eval_c2 = cmd 
-    { Seq(eval_c1, eval_c2) } //c1; c2
-  | IF; b = b_exp; THEN; LPAREN; b_true = cmd; RPAREN; ELSE; LPAREN; b_false = cmd; RPAREN
+  | IF; b = b_exp; THEN; b_true = cmd; ELSE; b_false = cmd; 
     { If(b, b_true, b_false) } // if b then b_true else b_false
-  | WHILE; b = b_exp; DO; LPAREN; c1 = cmd; RPAREN
+  | WHILE; b = b_exp; DO; c1 = cmd;
     { While(b, c1) } // while b do c1
+  | c1 = cmd; SEQUENCE; c2 = cmd; 
+  { Seq(c1, c2) }
+  
 
 b_exp:
   | b = BOOL 
     { Boolean(b) } 
-  | NOT; b = b_exp 
+  | NOT; b = b_exp; 
     { Not(b) } //not b
   | b1 = b_exp; AND; b2 = b_exp 
     { And(b1, b2) } //b1 && b2
@@ -68,9 +69,9 @@ b_exp:
     { Equal(i1, i2) } //b1 == b2
 
 a_exp:
-  | i = INT 
+  | i = INT
     { Integer(i) } 
-  | x = IDENT 
+  | x = IDENT
     { Variable(x) }
   | i1 = a_exp; PLUS; i2 = a_exp 
     { Add(i1, i2) } //i1 + i2
