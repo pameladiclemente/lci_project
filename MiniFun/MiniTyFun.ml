@@ -30,27 +30,27 @@ module MiniTyFun = struct
 
   (* Terms with type annotations *)
   type term =
-    | Int of int
-    | Bool of bool
-    | Var of string
-    | Add of term * term
-    | Sub of term * term
-    | Mul of term * term
-    | Div of term * term
-    | Mod of term * term
-    | LessThan of term * term
-    | LessThanEqual of term * term
-    | GreaterThan of term * term
-    | GreaterThanEqual of term * term
-    | Equal of term * term
-    | And of term * term
-    | Or of term * term
-    | Not of term
-    | Fun of string * allowed_types * term
-    | App of term * term
-    | If of term * term * term
-    | Let of string * term * term
-    | LetFun of string * string * allowed_types * allowed_types * term * term
+    | Int of int                                                              (* n *)
+    | Bool of bool                                                            (* v *)
+    | Var of string                                                           (* x *)
+    | Add of term * term                                                      (* fun x : t -> t *)
+    | Sub of term * term                                                      (* (* t1 && t2 *) t1 t2 *)
+    | Mul of term * term                                                      (* t1 + t2 *)
+    | Div of term * term                                                      (* t1 - t2 *)
+    | Mod of term * term                                                      (* t1 * t2 *)
+    | LessThan of term * term                                                 (* t1 / t2 *)
+    | LessThanEqual of term * term                                            (* t1 % t2 *)
+    | GreaterThan of term * term                                              (* t1 || t2 *)
+    | GreaterThanEqual of term * term                                         (* not t *)
+    | Equal of term * term                                                    (* t1 < t2 *)
+    | And of term * term                                                      (* t1 <= t2 *)
+    | Or of term * term                                                       (* t1 > t2 *)
+    | Not of term                                                             (* t1 >= t2 *)
+    | Fun of string * allowed_types * term                                    (* t1 == t2 *)
+    | App of term * term                                                      (* if t1 then t2 else t3 *)
+    | If of term * term * term                                                (* let x = t in t *)
+    | Let of string * term * term                                             (* letfun f x = t in t *)
+    | LetFun of string * string * allowed_types * allowed_types * term * term (* let rec f (x : t1) : t2 = t3 in t4 *)
 
 
   (* Defining the environment ( = the memory) as a Map *)
