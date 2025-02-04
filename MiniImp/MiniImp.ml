@@ -1,33 +1,34 @@
-(* Project fragment 1: Create a module for MiniImp that exposes the type of the abstract syntax tree and an evaluation function. *)
+(* Project fragment 1: 
+Create a module for MiniImp that exposes the type of the abstract syntax tree and an evaluation function. *)
 (* MiniImp syntax *)
 (* Arithmetic expressions; division and modulo have been included *)
 type a_exp =
-  | Integer of int                 (* n *)
-  | Variable of string             (* x *)
-  | Add of a_exp * a_exp             (* a + a *)
-  | Sub of a_exp * a_exp             (* a - a *)
-  | Mul of a_exp * a_exp             (* a * a *)
-  | Div of a_exp * a_exp             (* a / a *)
-  | Mod of a_exp * a_exp             (* a % a *)
+  | Integer of int                   (* n *)
+  | Variable of string               (* x *)
+  | Add of a_exp * a_exp             (* a1 + a2 *)
+  | Sub of a_exp * a_exp             (* a1 - a2 *)
+  | Mul of a_exp * a_exp             (* a1 * a2 *)
+  | Div of a_exp * a_exp             (* a1 / a2 *)
+  | Mod of a_exp * a_exp             (* a1 % a2 *)
 
 (* Boolean expressions; <=, >=, >, == have been included *)
 type b_exp =
-  | Boolean of bool                (* v *)
-  | And of b_exp * b_exp             (* b and b *)
-  | Or of b_exp * b_exp              (* b or b *)
-  | Not of b_exp                    (* not b *)
-  | LessThan of a_exp * a_exp        (* a < a *)
-  | LessThanEqual of a_exp * a_exp   (* a <= a *)
-  | GreaterThan of a_exp * a_exp     (* a > a *)
-  | GreaterThanEqual of a_exp * a_exp (* a >= a *)
-  | Equal of a_exp * a_exp (* a == a *)
+  | Boolean of bool                    (* v *)
+  | And of b_exp * b_exp               (* b1 and b2 *)
+  | Or of b_exp * b_exp                (* b1 or b2 *)
+  | Not of b_exp                       (* not b *)
+  | LessThan of a_exp * a_exp          (* a1 < a2 *)
+  | LessThanEqual of a_exp * a_exp     (* a1 <= a2 *)
+  | GreaterThan of a_exp * a_exp       (* a1 > a2 *)
+  | GreaterThanEqual of a_exp * a_exp  (* a1 >= a2 *)
+  | Equal of a_exp * a_exp             (* a1 == a2 *)
 
 (* Commands *)
 type cmd =
-  | Skip                           (* skip *)
+  | Skip                            (* skip *)
   | Assign of string * a_exp        (* x := a *)
-  | Seq of cmd * cmd               (* c; c *)
-  | If of b_exp * cmd * cmd         (* if b then c else c *)
+  | Seq of cmd * cmd                (* c1; c2 *)
+  | If of b_exp * cmd * cmd         (* if b then c1 else c2 *)
   | While of b_exp * cmd            (* while b do c *)
 
 (* Program *)
@@ -40,7 +41,7 @@ type program =
 module StringMap = Map.Make(String)
 type memory = int StringMap.t
 
-(* Lookup function with error handling *)
+(* Lookup function *)
 let lookup (x : string) (m : memory) : int =
   try StringMap.find x m
   with Not_found -> failwith ("Variable not found in the memory: " ^ x)
