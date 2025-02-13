@@ -23,9 +23,9 @@ type op =
 
 (* Terms with type annotations *)
 type term =
-  | Int of int                                                                (* n *)
-  | Bool of bool                                                              (* v *)
-  | Var of string                                                             (* x *)
+  | Integer of int                                                                (* n *)
+  | Boolean of bool                                                              (* v *)
+  | Variable of string                                                             (* x *)
   | Function of string * allowed_types * term                                 (* fun x : t -> t *)
   | FunctionApplication of term * term                                        (* (* t1 && t2 *) t1 t2 *)
   | Add of term * term                                                        (* t1 + t2 *)
@@ -52,7 +52,7 @@ module StringMap : Map.S with type key = string
 type memory = allowed_types StringMap.t
 
 (* Lookup a variable's type in the context *)
-val lookup_type : string -> memory -> allowed_types
+val lookup : string -> memory -> allowed_types
 
 (* Evaluating types *)
-val type_check : memory -> term -> allowed_types
+val type_check : memory -> term -> allowed_types option

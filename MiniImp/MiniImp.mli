@@ -43,14 +43,5 @@ val lookup : string -> memory -> int
 (* Update function *)
 val update : string -> int -> memory -> memory
 
-(* Evaluating arithmetic expressions *)
-val eval_a_exp : a_exp -> memory -> int
-
-(* Evaluating a boolean expression *)
-val eval_b_exp : b_exp -> memory -> bool
-
-(* Evaluating a command *)
-val eval_cmd : cmd -> memory -> memory
-
 (* Evaluating a program *)
 val eval_program : program -> int -> int

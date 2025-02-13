@@ -1,7 +1,8 @@
 (* Project fragment 1: 
 Create a module for MiniImp that exposes the type of the abstract syntax tree and an evaluation function. *)
-(* MiniImp syntax *)
-(* Arithmetic expressions; division and modulo have been included *)
+
+(* MiniImp syntax 
+ Arithmetic expressions; division and modulo have been included *)
 type a_exp =
   | Integer of int                   (* n *)
   | Variable of string               (* x *)
@@ -13,7 +14,7 @@ type a_exp =
 
 (* Boolean expressions; <=, >=, >, == have been included *)
 type b_exp =
-  | Boolean of bool                    (* v *)
+  | Boolean of int                    (* 0 for false, 1 for true *)
   | And of b_exp * b_exp               (* b1 and b2 *)
   | Or of b_exp * b_exp                (* b1 or b2 *)
   | Not of b_exp                       (* not b *)
@@ -35,16 +36,15 @@ type cmd =
 type program = 
   | Program of string * string * cmd  (* def main with input x output y as c *)
 
-
-(* Memory *)
-(* Defining the environment ( = the memory) as a Map *)
+(* Memory:
+Defining the environment ( = the memory) as a Map *)
 module StringMap = Map.Make(String)
 type memory = int StringMap.t
 
 (* Lookup function *)
 let lookup (x : string) (m : memory) : int =
   try StringMap.find x m
-  with Not_found -> failwith ("Variable not found in the memory: " ^ x)
+  with Not_found -> failwith ("Variable not found: " ^ x)
 
 (* Update function *)
 let update (x : string) (v : int) (m : memory) : memory =
@@ -68,19 +68,18 @@ let rec eval_a_exp (a : a_exp) (m : memory) : int =
       let v2 = eval_a_exp a2 m in
       if v2 = 0 then failwith "Modulo by zero" else eval_a_exp a1 m mod v2
 
-
   (* Evaluating a boolean expression *)
-  let rec eval_b_exp (b : b_exp) (m : memory) : bool =
+  let rec eval_b_exp (b : b_exp) (m : memory) : int =
   match b with
-  | Boolean b -> b
-  | And (b1, b2) -> eval_b_exp b1 m && eval_b_exp b2 m
-  | Or (b1, b2) -> eval_b_exp b1 m || eval_b_exp b2 m
-  | Not b1 -> not (eval_b_exp b1 m)
-  | LessThan (a1, a2) -> eval_a_exp a1 m < eval_a_exp a2 m
-  | LessThanEqual (a1, a2) -> eval_a_exp a1 m <= eval_a_exp a2 m
-  | GreaterThan (a1, a2) -> eval_a_exp a1 m > eval_a_exp a2 m
-  | GreaterThanEqual (a1, a2) -> eval_a_exp a1 m >= eval_a_exp a2 m
-  | Equal (a1, a2) -> eval_a_exp a1 m == eval_a_exp a2 m
+  | Boolean b -> if b <> 0 then 1 else 0 
+  | And (b1, b2) -> if eval_b_exp b1 m = 1 && eval_b_exp b2 m = 1 then 1 else 0
+  | Or (b1, b2) -> if eval_b_exp b1 m = 1 || eval_b_exp b2 m = 1 then 1 else 0
+  | Not b1 -> if eval_b_exp b1 m = 1 then 0 else 1
+  | LessThan (a1, a2) -> if eval_a_exp a1 m < eval_a_exp a2 m then 1 else 0
+  | LessThanEqual (a1, a2) -> if eval_a_exp a1 m <= eval_a_exp a2 m then 1 else 0
+  | GreaterThan (a1, a2) -> if eval_a_exp a1 m > eval_a_exp a2 m then 1 else 0
+  | GreaterThanEqual (a1, a2) -> if eval_a_exp a1 m >= eval_a_exp a2 m then 1 else 0
+  | Equal (a1, a2) -> if eval_a_exp a1 m = eval_a_exp a2 m then 1 else 0
   
 (* Evaluating a command *)
 let rec eval_cmd (c : cmd) (m : memory) : memory =
@@ -90,13 +89,13 @@ let rec eval_cmd (c : cmd) (m : memory) : memory =
       let v = eval_a_exp a m in
       StringMap.add x v m
   | Seq (c1, c2) ->
-      let m' = eval_cmd c1 m in
-      eval_cmd c2 m'
+      let m2 = eval_cmd c1 m in
+      eval_cmd c2 m2
   | If (b, c1, c2) ->
-      if eval_b_exp b m then eval_cmd c1 m else eval_cmd c2 m
+      if eval_b_exp b m = 1 then eval_cmd c1 m else eval_cmd c2 m  (* Confronto con 1 *)
   | While (b, c1) ->
-      let rec loop m' =
-        if eval_b_exp b m' then loop (eval_cmd c1 m') else m'
+      let rec loop m2 =
+        if eval_b_exp b m2 = 1 then loop (eval_cmd c1 m2) else m2  (* Confronto con 1 *)
       in
       loop m
 

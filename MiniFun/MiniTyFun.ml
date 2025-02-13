@@ -30,9 +30,11 @@ module MiniTyFun = struct
 
   (* Terms with type annotations *)
   type term =
-    | Int of int                                                              (* n *)
-    | Bool of bool                                                            (* v *)
-    | Var of string                                                           (* x *)
+    | Integer of int                                                          (* n *)
+    | Boolean of bool                                                         (* v *)
+    | Variable of string                                                      (* x *)
+    | Function of string * allowed_types * term                             (* t1 == t2 *)
+    | FunctionApplication of term * term                                      (* let x = t in t *)
     | Add of term * term                                                      (* fun x : t -> t *)
     | Sub of term * term                                                      (* (* t1 && t2 *) t1 t2 *)
     | Mul of term * term                                                      (* t1 + t2 *)
@@ -46,9 +48,7 @@ module MiniTyFun = struct
     | And of term * term                                                      (* t1 <= t2 *)
     | Or of term * term                                                       (* t1 > t2 *)
     | Not of term                                                             (* t1 >= t2 *)
-    | Fun of string * allowed_types * term                                    (* t1 == t2 *)
-    | App of term * term                                                      (* if t1 then t2 else t3 *)
-    | If of term * term * term                                                (* let x = t in t *)
+    | If of term * term * term                                                (* if t1 then t2 else t3 *) 
     | Let of string * term * term                                             (* letfun f x = t in t *)
     | LetFun of string * string * allowed_types * allowed_types * term * term (* let rec f (x : t1) : t2 = t3 in t4 *)
 
@@ -59,68 +59,60 @@ module MiniTyFun = struct
   type memory = allowed_types StringMap.t
 
   (* Lookup a variable's type in the context *)
-  let lookup_type (x : string) (ctx : memory) : allowed_types =
-    try StringMap.find x ctx
-    with Not_found -> failwith ("Variable '" ^ x ^ "' is not defined")
+  let lookup (x : string) (m : memory) : allowed_types =
+    try StringMap.find x m
+    with Not_found -> failwith ("Variable not found: " ^ x)
 
   (* Evaluating types *)
-  let rec type_check (mem : memory) (t : term) : allowed_types =
-    match t with
-    | Int n -> IntType 
-    | Bool b -> BoolType 
-    | Var x -> lookup_type x mem
-    | Add (t1, t2)
-    | Sub (t1, t2)
-    | Mul (t1, t2)
-    | Div (t1, t2)
-    | Mod (t1, t2) ->
-        (match (type_check mem t1, type_check mem t2) with
-          | (IntType, IntType) -> IntType 
-          | _ -> failwith "Type error: arithmetic operations require both integers")
-    | LessThan (t1, t2)
-    | LessThanEqual (t1, t2)
-    | GreaterThan (t1, t2)
-    | GreaterThanEqual (t1, t2)
-    | Equal (t1, t2) ->
-        (match (type_check mem t1, type_check mem t2) with
-          | (IntType, IntType) -> BoolType
-          | _ -> failwith "Type error: comparison operations require both integers")
-    | And (t1, t2)
-    | Or (t1, t2) ->
-        (match (type_check mem t1, type_check mem t2) with
-          | (BoolType, BoolType) -> BoolType 
-          | _ -> failwith "Type error: logical operations require both booleans")
-    | Not t ->
-        (match type_check mem t with
-          | BoolType -> BoolType
-          | _ -> failwith "Type error: 'not' requires a boolean")
-    | If (t1, t2, t3) ->
-        let cond_ty = type_check mem t1 in
-        let then_ty = type_check mem t2 in
-        let else_ty = type_check mem t3 in
-        if cond_ty = BoolType then
-          if then_ty = else_ty then then_ty
-          else failwith "Type error: branches of 'if' must have the same type"
-        else failwith "Type error: 'if' condition must be of type bool"
-    | Fun (x, ty_x, body) ->
-        let mem' = StringMap.add x ty_x mem in
-        let ty_body = type_check mem' body in
-        FunType (ty_x, ty_body)
-    | App (t1, t2) ->
-        (match type_check mem t1 with
-         | FunType (ty_param, ty_ret) ->
-             let ty_arg = type_check mem t2 in
-             if ty_param = ty_arg then ty_ret
-             else failwith "Type error: function argument type mismatch"
-         | _ -> failwith "Type error: expected a function in application")
-    | Let (x, t1, t2) ->
-        let ty1 = type_check mem t1 in
-        let mem' = StringMap.add x ty1 mem in
-        type_check mem' t2
-    | LetFun (f, x, ty_x, ty_ret, t1, t2) ->
-        let mem' = StringMap.add f (FunType (ty_x, ty_ret)) (StringMap.add x ty_x mem) in
-        let ty_body = type_check mem' t1 in
-        if ty_body = ty_ret then
-          type_check (StringMap.add f (FunType (ty_x, ty_ret)) mem) t2
-        else failwith "Type error: recursive function return type mismatch"
-end
+ let rec type_check (m : memory) (t : term) : allowed_types option =
+  match t with
+  | Integer _ -> Some IntType
+  | Boolean _ -> Some BoolType
+  | Variable x -> (try Some (lookup x m) with Failure _ -> None)
+  | Add (t1, t2)
+  | Sub (t1, t2)
+  | Mul (t1, t2)
+  | Div (t1, t2)
+  | Mod (t1, t2) ->
+      (match (type_check m t1, type_check m t2) with
+       | Some IntType, Some IntType -> Some IntType
+       | _ -> None)
+  | LessThan (t1, t2)
+  | LessThanEqual (t1, t2)
+  | GreaterThan (t1, t2)
+  | GreaterThanEqual (t1, t2)
+  | Equal (t1, t2) ->
+      (match (type_check m t1, type_check m t2) with
+       | Some IntType, Some IntType -> Some BoolType
+       | _ -> None)
+  | And (t1, t2)
+  | Or (t1, t2) ->
+      (match (type_check m t1, type_check m t2) with
+       | Some BoolType, Some BoolType -> Some BoolType
+       | _ -> None)
+  | Not t ->
+      (match type_check m t with
+       | Some BoolType -> Some BoolType
+       | _ -> None)
+  | If (t1, t2, t3) ->
+      (match type_check m t1, type_check m t2, type_check m t3 with
+       | Some BoolType, Some type_t2, Some type_t3 when type_t2 = type_t3 -> Some type_t2
+       | _ -> None)
+  | Function (x, type_x, body) ->
+      (match type_check (StringMap.add x type_x m) body with
+       | Some type_body -> Some (FunType (type_x, type_body))
+       | None -> None)
+  | FunctionApplication (t1, t2) ->
+      (match type_check m t1, type_check m t2 with
+       | Some (FunType (type_param, type_return)), Some type_arg when type_param = type_arg -> Some type_return
+       | _ -> None)
+  | Let (x, t1, t2) ->
+      (match type_check m t1 with
+       | Some type_t1 -> type_check (StringMap.add x type_t1 m) t2
+       | None -> None)
+  | LetFun (f, x, type_x, type_return, t1, t2) ->
+      let mem' = StringMap.add f (FunType (type_x, type_return)) (StringMap.add x type_x m) in
+      (match type_check mem' t1 with
+       | Some type_body when type_body = type_return -> type_check (StringMap.add f (FunType (type_x, type_return)) m) t2
+       | _ -> None)
+  end
