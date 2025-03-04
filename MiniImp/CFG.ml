@@ -1,40 +1,47 @@
 (* Each node represents a basic block (sequence of commands).
-Edges are represented by the successors list in the node *)
+Edges are represented by the edges list in the node *)
 
 (* Unique ID for node *)
 type node_id = int 
 
 (* CFG node *)
 type node = {
-  id: node_id;                 (* Node ID *)
-  code: MiniImp.cmd list;      (* Associated commands to node *)
-  successors: node_id list;    (* Successor(s) list *)
+  id: node_id;                       (* Node ID *)
+  statements: MiniImp.cmd list;      (* Associated commands to node *)
+  edges: node_id list;               (* Successor(s) list *)
 }
 
 (* CFG *)
 type cfg = {
-  nodes: (node_id * node) list; (* Node list *)
-  entry: node_id;               (* Entry node *)
-  exit: node_id;                (* Exit node *)
+  nodes: (node_id * node) list; (* Node list, I nodi del CFG (N) sono rappresentati come una lista di nodi *)
+  entry_node: node_id;               (* Entry node *)
+  terminal_node: node_id;                (* Exit node *)
 }
 
 
 (* Creation of a new unique identifier for a node *)
-let node_counter = ref 0
-let new_node_id () = let id = !node_counter in incr node_counter; id
+let node_counter = ref 0 (* ref 0 crea un riferimento mutabile, ovvero una variabile che può essere modificata in OCaml*)
+let new_node_id () = 
+  let id = !node_counter in (* legge il valore della variabile node_counter *)
+  incr node_counter; (*  Incrementa node_counter per il prossimo nodo *)
+  id (* restituisce il valore vecchio *)
 
-(* Creating a node with code and list of successors *)
-let create_node code successors =
-  { id = new_node_id (); code; successors }
+(* Creating a node with statements and list of edges;
+Crea un nuovo nodo del CFG con: Un ID univoco generato da new_node_id (),
+Una lista di comandi associati, Una lista di successori del nodo *)
+let create_node statements edges = (* Funzione che accetta due parametri (statements, edges) e restituisce un record. *)
+  { id = new_node_id (); statements = statements; edges = edges } (* Crea un record con i campi id, statements e edges. *)
 
-(* CFG construction for a command (cmd) *)
-let rec build_cmd (cmd : MiniImp.cmd) (exit_node : node_id) (cfg : cfg) : node_id * cfg =
+(* CFG construction for a command (cmd) 
+Restituisce l'ID del nodo creato e il CFG aggiornato*)
+let rec build_cmd (cmd : MiniImp.cmd) (exit_node : node_id) (cfg : cfg) : node_id * cfg = (* Dichiariamo una funzione ricorsiva con parametri: comando MiniImp da tradurre in CFG, nodo di uscita del comando, CFG corrente*)
   match cmd with
+  (* Crea un nodo per rappresentare l'operazione Skip, Il nodo ha un solo successore: exit_node, il nodo di uscita -> Aggiorna il CFG aggiungendo il nodo alla lista cfg.nodes*)
   | Skip ->
       (* Nodo per Skip con successore exit_node *)
       let node = create_node [Skip] [exit_node] in
       (* Restituisce l'ID del nodo e il CFG aggiornato *)
-      (node.id, { cfg with nodes = (node.id, node) :: cfg.nodes })
+      (node.id, { cfg with nodes = (node.id, node) :: cfg.nodes }) (* Crea un nuovo record cfg, aggiornando solo il campo nodes, :: è l'operatore di cons che aggiunge il nuovo nodo in testa alla lista cfg.nodes.*)
 
   | Assign (x, a) ->
       (* Nodo per l'assegnazione con successore exit_node *)
@@ -42,10 +49,14 @@ let rec build_cmd (cmd : MiniImp.cmd) (exit_node : node_id) (cfg : cfg) : node_i
       (* Restituisce l'ID del nodo e il CFG aggiornato *)
       (node.id, { cfg with nodes = (node.id, node) :: cfg.nodes })
 
+
+      (* Compila prima c2, ottenendo mid_node, il suo primo nodo, e il CFG aggiornato cfg'.
+      Usa mid_node come exit_node per c1: in questo modo c1 punta direttamente a c2.
+      Compila c1 con mid_node come successore e aggiorna il CFG.*)
   | Seq (c1, c2) ->
       (* Costruzione ricorsiva del CFG per c2 e uso del suo nodo iniziale come uscita di c1 *)
-      let mid_node, cfg' = build_cmd c2 exit_node cfg in
-      build_cmd c1 mid_node cfg'
+      let mid_node, cfg' = build_cmd c2 exit_node cfg in (*Chiama ricorsivamente build_cmd su c2, con exit_node come uscita, mid_node è l'ID del primo nodo di c2, cfg' è il CFG aggiornato*)
+      build_cmd c1 mid_node cfg' (* Compila c1, usando mid_node come suo successore. *)
 
   | If (cond, then_cmd, else_cmd) ->
       (* Costruzione dei rami then e else *)
@@ -64,7 +75,7 @@ let rec build_cmd (cmd : MiniImp.cmd) (exit_node : node_id) (cfg : cfg) : node_i
       (* Nodo condizionale con un arco verso il corpo del ciclo e uno verso l'uscita *)
       let cond_node = create_node [While (cond, Skip)] [body_exit; exit_node] in
       (* Nodo fittizio che punta al nodo condizionale *)
-      let loop_node_entry = { id = loop_node; code = []; successors = [cond_node.id] } in
+      let loop_node_entry = { id = loop_node; statements = []; edges = [cond_node.id] } in
       (* Restituisce l'ID del nodo condizionale e il CFG aggiornato *)
       (cond_node.id, { cfg1 with nodes = (cond_node.id, cond_node) :: (loop_node, loop_node_entry) :: cfg1.nodes })
 
@@ -79,7 +90,7 @@ Ciclo (While):
 Viene creato un nodo fittizio (loop_node) come ingresso al ciclo.
 Il corpo del ciclo punta al nodo condizionale (cond_node), e il nodo condizionale punta sia al corpo sia al exit_node.*)
 
-(* CFG construction for a complete program *)
+(* CFG construction for a complete program, costruisce un grafo di controllo di flusso (CFG) a partire da un programma MiniImp. *)
 let build_cfg (program : MiniImp.program) : cfg =
   match program with
 
@@ -89,22 +100,21 @@ Slide di riferimento: 13.
 Sto ignorando la parte def main with input x output y as?
 Sì, al momento il CFG rappresenta solo il corpo (body_cmd).
 Se necessario, possiamo aggiungere nodi che rappresentano l'inizializzazione e l'output.*)
-  | MiniImp.Program (_, _, body_cmd) ->
+  | MiniImp.Program (_, _, body_cmd) -> (*  Il programma MiniImp ha questa struttura: type program = Program of string * string * cmd; Il primo string è il nome della variabile di input (ignorato _).
+Il secondo string è il nome della variabile di output (ignorato _). Come da pdf, consideriamo solo il blocco comandi *)
       let exit_node = new_node_id () in
-      let entry_node, cfg = build_cmd body_cmd exit_node { nodes = []; entry = 0; exit = 0 } in
-      { cfg with entry = entry_node; exit = exit_node }
+      (* Chiamiamo build_cmd per tradurre body_cmd in CFG. Parametri della chiamata:  Il corpo del programma., Il nodo di uscita, cioè il nodo a cui body_cmd deve puntare quando termina, Un CFG iniziale vuoto*)
+      let entry_node, cfg = build_cmd body_cmd exit_node { nodes = []; entry_node = 0; terminal_node = 0 } in
+      (* Restituiamo il CFG aggiornato, mantenendo i nodi creati da build_cmd ma cambiando:
+        entry_node = entry_node → Il nodo di ingresso ora è il primo nodo creato dal body_cmd.
+        terminal_node = exit_node → Il nodo di uscita ora è quello creato all'inizio.*)
+      { cfg with entry_node = entry_node; terminal_node = exit_node }
 
 
 
 
 
 (* DATAFLOW ANALYSIS 
-
-
-
-
-
-
 
 
 Usiamo un Hashtbl (defined_vars) per tracciare quali variabili sono definite.
@@ -124,43 +134,41 @@ let check_uninitialized_variables (cfg : cfg) (input_var : string) : bool =
   (* Aggiungiamo la variabile di input come già inizializzata *)
   Hashtbl.add defined_vars input_var true;
 
-  (* Funzione per controllare una singola istruzione 
+  (* Funzione per controllare tutte le variabili usate in un'espressione aritmetica *)
+  let rec vars_in_a_exp = function
+    | MiniImp.Integer _ -> []
+    | Variable v -> [v]
+    | Add (a1, a2) | Sub (a1, a2) | Mul (a1, a2) | Div (a1, a2) | Mod (a1, a2) -> vars_in_a_exp a1 @ vars_in_a_exp a2
+  in
+
+  (* Funzione per controllare tutte le variabili usate in un'espressione booleana *)
+  let rec vars_in_b_exp = function
+    | MiniImp.Boolean _ -> []
+    | And (b1, b2) | Or (b1, b2) -> vars_in_b_exp b1 @ vars_in_b_exp b2
+    | Not b -> vars_in_b_exp b
+    | LessThan (a1, a2) | LessThanEqual (a1, a2) | GreaterThan (a1, a2) | GreaterThanEqual (a1, a2) | Equal (a1, a2) ->
+        vars_in_a_exp a1 @ vars_in_a_exp a2
+  in
+
+  (* Funzione per controllare una singola istruzione *)
   let check_instr instr =
     match instr with
     | MiniImp.Assign (x, a_exp) ->
-        (* Controlliamo che tutte le variabili usate nell'espressione siano inizializzate *)
-        let rec vars_in_exp = function
-          | MiniImp.Integer _ -> []
-          | MiniImp.Variable v -> [v]
-          | MiniImp.Add (e1, e2) | MiniImp.Sub (e1, e2)
-          | MiniImp.Mul (e1, e2) | MiniImp.Div (e1, e2)
-          | MiniImp.Mod (e1, e2) -> vars_in_exp e1 @ vars_in_exp e2
-          | MiniImp.Equal (a1, a2) -> vars_in_exp a1 @ vars_in_exp a2
-        in
         List.iter (fun v ->
           if not (Hashtbl.mem defined_vars v) then (
             Printf.printf "Errore: La variabile %s è usata prima di essere inizializzata!\n" v;
             errors := true
           )
-        ) (vars_in_exp a_exp);
-        (* Dopo l'assegnazione, la variabile `x` è inizializzata *)
+        ) (vars_in_a_exp a_exp);
         Hashtbl.replace defined_vars x true
 
-    | MiniImp.If (b_exp, _, _) | MiniImp.While (b_exp, _) ->
-        let rec vars_in_bexp = function
-          | MiniImp.Boolean _ -> []
-          | MiniImp.And (b1, b2) | MiniImp.Or (b1, b2) -> vars_in_bexp b1 @ vars_in_bexp b2
-          | MiniImp.Not b -> vars_in_bexp b
-          | MiniImp.LessThan (a1, a2) | MiniImp.LessThanEqual (a1, a2)
-          | MiniImp.GreaterThan (a1, a2) | MiniImp.GreaterThanEqual (a1, a2)
-        
-        in
+    | If (b_exp, _, _) | While (b_exp, _) ->
         List.iter (fun v ->
           if not (Hashtbl.mem defined_vars v) then (
             Printf.printf "Errore: La variabile %s è usata prima di essere inizializzata!\n" v;
             errors := true
           )
-        ) (vars_in_bexp b_exp)
+        ) (vars_in_b_exp b_exp)
 
     | _ -> ()
   in
@@ -172,7 +180,6 @@ let check_uninitialized_variables (cfg : cfg) (input_var : string) : bool =
 
   not !errors  (* Ritorna true se tutto è corretto, false se ci sono errori *)
 
-*)
 
 (*Costruzione minimale, massimale o intermedia?
 Minimale: Blocchi di base senza nodi inutili.

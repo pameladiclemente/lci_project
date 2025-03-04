@@ -11,13 +11,14 @@ type a_exp =
   | Mul of a_exp * a_exp             (* a1 * a2 *)
   | Div of a_exp * a_exp             (* a1 / a2 *)
   | Mod of a_exp * a_exp             (* a1 % a2 *)
+  | NotInt of a_exp                  (* -a1 *)
 
 (* Boolean expressions; <=, >=, >, == have been included *)
 type b_exp =
-  | Boolean of int                    (* 0 for false, 1 for true *)
+  | Boolean of int                     (* 0 for false, 1 for true *)
   | And of b_exp * b_exp               (* b1 and b2 *)
   | Or of b_exp * b_exp                (* b1 or b2 *)
-  | Not of b_exp                       (* not b *)
+  | NotBool of b_exp                   (* not b *)
   | LessThan of a_exp * a_exp          (* a1 < a2 *)
   | LessThanEqual of a_exp * a_exp     (* a1 <= a2 *)
   | GreaterThan of a_exp * a_exp       (* a1 > a2 *)
@@ -67,6 +68,7 @@ let rec eval_a_exp (a : a_exp) (m : memory) : int =
   | Mod (a1, a2) ->
       let v2 = eval_a_exp a2 m in
       if v2 = 0 then failwith "Modulo by zero" else eval_a_exp a1 m mod v2
+  | NotInt a1 -> - (eval_a_exp a1 m)  (* Negazione aritmetica *)
 
   (* Evaluating a boolean expression *)
   let rec eval_b_exp (b : b_exp) (m : memory) : int =
@@ -74,7 +76,7 @@ let rec eval_a_exp (a : a_exp) (m : memory) : int =
   | Boolean b -> if b <> 0 then 1 else 0 
   | And (b1, b2) -> if eval_b_exp b1 m = 1 && eval_b_exp b2 m = 1 then 1 else 0
   | Or (b1, b2) -> if eval_b_exp b1 m = 1 || eval_b_exp b2 m = 1 then 1 else 0
-  | Not b1 -> if eval_b_exp b1 m = 1 then 0 else 1
+  | NotBool b1 -> if eval_b_exp b1 m <> 0 then 0 else 1
   | LessThan (a1, a2) -> if eval_a_exp a1 m < eval_a_exp a2 m then 1 else 0
   | LessThanEqual (a1, a2) -> if eval_a_exp a1 m <= eval_a_exp a2 m then 1 else 0
   | GreaterThan (a1, a2) -> if eval_a_exp a1 m > eval_a_exp a2 m then 1 else 0

@@ -1,6 +1,4 @@
 (* MiniRISC.mli *)
-open CFG 
-
 (* Identificatori per registri e etichette *)
 type register = string
 type label = string
@@ -53,8 +51,8 @@ type instruction =
 (* labelled blocks (lists of instructions), Un blocco etichettato ha un'etichetta, una lista di istruzioni e una lista di successori. *)
 type labelled_block = {
   label: label;
-  instructions: instruction list;
-  successors: label list;
+  statements: instruction list;
+  edges: label list;
 }
 
 (* Grafo di controllo di flusso per MiniRISC, l grafo di controllo di flusso MiniRISC (risc_cfg) contiene:
@@ -63,18 +61,34 @@ Il nodo di ingresso (entry).
 Il nodo di uscita (exit). *)
 type risc_cfg = {
   blocks: (label * labelled_block) list;
-  entry: label;
-  exit: label;
+  entry_node: label;
+  terminal_node: label;
 }
 
 (* Funzioni di utilità per la generazione di etichette e registri *)
 val assign_label : unit -> label
+
 val assign_register : unit -> register
 
+(* Funzione per tradurre un'espressione aritmetica MiniImp in una lista di istruzioni MiniRISC *)
 val translate_a_exp : MiniImp.a_exp -> register -> instruction list
+
+(* Funzione per tradurre un'espressione booleana MiniImp in una lista di istruzioni MiniRISC *)
 val translate_b_exp : MiniImp.b_exp -> register -> instruction list
+
+(* Funzione per tradurre un nodo CFG MiniImp in un blocco MiniRISC *)
 val translate_node : CFG.node -> labelled_block
+
+(* Traduzione di un intero CFG di MiniImp a MiniRISC CFG *)
 val trans_in_riscfg : CFG.cfg -> risc_cfg
+
+(* TODO, INSTRUCTION TO STRING? *)
 val trans_in_risc : risc_cfg -> string
 
+(* Controllo che nessun registro sia usato prima di essere definito *)
 val check_uninitialized_registers : risc_cfg -> bool
+
+(* TARGET CODE GENERATION *)
+val translate_instruction : int StringMap.t -> string list -> instr
+
+val translate_to_target : risc_cfg -> int -> risc_cfg 

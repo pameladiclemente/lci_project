@@ -29,7 +29,6 @@ rule read = parse
 | "=="         { EQ }
 | "&&"         { AND }
 | "||"         { OR }
-| "!"          { NOT }
 | ":="         { ASSIGN }
 | ";"          { SEQUENCE }
 | "("          { LPAREN } (* Left parethesis (opening one) *)
@@ -49,6 +48,7 @@ rule read = parse
     | "else"     -> ELSE
     | "while"    -> WHILE
     | "do"       -> DO
+    | "not"      -> NOT
     | _          -> IDENT(Lexing.lexeme lexbuf)  (* Identifiers *)
   }
 | _            { raise (LexingError ("Unknown token: " ^ Lexing.lexeme lexbuf)) }

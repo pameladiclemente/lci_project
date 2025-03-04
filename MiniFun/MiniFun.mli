@@ -4,7 +4,7 @@ type term =
   | Boolean of bool                         (* v *)
   | Variable of string                      (* x *)
   | Function of string * term               (* fun x => t *)
-  | FunctionApplication of term * term      (* t1 t2 *)
+  | FunctionApplication of string * term      (* t1 t2 *)
   | Add of term * term                      (* t1 + t2 *)
   | Sub of term * term                      (* t1 - t2 *)
   | Mul of term * term                      (* t1 * t2 *)

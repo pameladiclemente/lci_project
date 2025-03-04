@@ -9,7 +9,7 @@ type term =
   | Boolean of bool                             (* v *)
   | Variable of string                          (* x *)
   | Function of string * term                   (* fun x => t *)
-  | FunctionApplication of term * term          (* t1 t2 *)
+  | FunctionApplication of string * term        (* f t2 *)
   | Add of term * term                          (* t1 + t2 *)
   | Sub of term * term                          (* t1 - t2 *)
   | Mul of term * term                          (* t1 * t2 *)
@@ -26,7 +26,6 @@ type term =
   | If of term * term * term                    (* if t1 then t2 else t3 *)
   | Let of string * term * term                 (* let x = t in t *)
   | LetFun of string * string * term * term     (* letfun f x = t in t *)
-
 
   (* Defining the environment ( = the memory) as a Map *)
   module StringMap = Map.Make(String)
@@ -52,18 +51,20 @@ type term =
     | Integer n -> MemInteger n
     | Boolean b -> MemBoolean b
     | Variable x -> lookup x m
-    | Function (x, body) -> Closure (x, body, m)
-    | FunctionApplication (t1, t2) ->
-        let closure = eval_term t1 m in (* t1 is the function *)
-        let input = eval_term t2 m in (* t2 is the input *)
+    | Function (f, t1) -> Closure (f, t1, m)
+    | FunctionApplication (f, t1) ->
+        let closure = lookup f m in
+        let input_value = eval_term t1 m in
         (match closure with
-         | Closure (x, body, closure_env) -> (* if t1 evaluates to a closure, binds x to the result of t2 in the environment and evaluate the body*)
-             let new_env = update x input closure_env in
-             eval_term body new_env
-         | RecClosure (f, x, body, closure_env) -> (* If t1 evaluates to a RecClosure, it binds both the function name (f) and parameter (x) to their respective values in the closure's environment and evaluates the body. *)
-             let new_env = update x input (update f closure closure_env) in
-             eval_term body new_env
-         | _ -> failwith "Application error: expected a function but got a non-function value")
+          | Closure (f, t2, m1) -> 
+              let m2 = update f input_value m1 in
+              eval_term t2 m2
+          | RecClosure (f, input, t2, m1) -> 
+            let input_value = eval_term t1 m in (* Valutiamo l'argomento passato *)
+            let m2 = update f closure m1 in (* Aggiungiamo la funzione stessa all'ambiente *)
+            let m3 = update input input_value m2 in (* Aggiungiamo il parametro della funzione *)
+            eval_term t2 m3
+     | _ -> failwith "Error: expected a function but got a non-function value")
     | Add (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
@@ -97,7 +98,7 @@ type term =
          | MemInteger n1, MemInteger n2 -> 
             if n2 = 0 then failwith "Error: Modulo by zero"  
             else MemInteger (n1 mod n2)
-         | _ -> failwith "Type error: multiplication requires two integers")
+         | _ -> failwith "Type error: modulo requires two integers")
     | And (t1, t2) ->
         let v1 = eval_term t1 m in
         let v2 = eval_term t2 m in
@@ -113,8 +114,9 @@ type term =
     | Not (t1) ->
         let v1 = eval_term t1 m in
         (match v1 with
-        | MemBoolean b1 -> MemBoolean (not b1)
-        | _ -> failwith "Type error: logical 'not' requires a boolean")
+        | MemBoolean b -> MemBoolean (not b)
+        | MemInteger i -> MemInteger (-i)
+        | _ -> failwith "Type error: logical 'not' requires a boolean or an integer")
     | LessThan (t1, t2) ->
       let v1 = eval_term t1 m in
       let v2 = eval_term t2 m in
@@ -146,17 +148,19 @@ type term =
        | MemInteger n1, MemInteger n2 -> MemBoolean (n1 == n2)
        | _ -> failwith "Type error: comparison == requires two integers")
     | If (t1, t2, t3) ->
-        let cond = eval_term t1 m in
-        (match cond with
+        let b = eval_term t1 m in
+        (match b with
          | MemBoolean true -> eval_term t2 m
          | MemBoolean false -> eval_term t3 m
          | _ -> failwith "Type error: 'if' condition must be a boolean")
-    | Let (x, t1, t2) -> (*2 consecutive assignment to same variable x *)
+    | Let (f, t1, t2) -> (*2 consecutive assignment to same variable x *)
         let v1 = eval_term t1 m in
-        let m2 = update x v1 m in
+        let m2 = update f v1 m in
         eval_term t2 m2
-    | LetFun (f, x, t1, t2) ->
-        let rec_closure = RecClosure (f, x, t1, m) in
+    | LetFun (f, x, t1, t2) ->  
+        let rec_closure = RecClosure (f, x, t1, m) in  (* Wrappiamo x in Variable *)
         let m2 = update f rec_closure m in
         eval_term t2 m2
+
+
     
