@@ -1,12 +1,12 @@
 open MiniImp
-open Lexing
-
+open Lexer
 exception ParsingError of string
+
 
 (* Translate parser tokens to be outputted *)
 let string_of_token = function
   | Parser.INT n -> Printf.sprintf "INT(%d)" n
-  | Parser.BOOL b -> Printf.sprintf "BOOL(%d)" b
+  | Parser.BOOL b -> Printf.sprintf "BOOL(%b)" b
   | Parser.IDENT s -> Printf.sprintf "IDENT(%s)" s
   | Parser.PLUS -> "PLUS"
   | Parser.MINUS -> "MINUS"

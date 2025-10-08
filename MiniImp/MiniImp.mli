@@ -11,7 +11,7 @@ type a_exp =
 
 (* Boolean expressions; <=, >=, >, == have been included *)
 type b_exp =
-  | Boolean of int                     (* 0 for false, 1 for true *)
+  | Boolean of bool                     (* 0 for false, 1 for true *)
   | And of b_exp * b_exp               (* b1 and b2 *)
   | Or of b_exp * b_exp                (* b1 or b2 *)
   | NotBool of b_exp                   (* not b *)

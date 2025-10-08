@@ -1,0 +1,8 @@
+// Simple assignment
+
+// Example tests:
+// input x = 0, output y = 3
+// input x = 4, output y = 7
+// input x = -2, output y = 1
+
+def main with input x output y as (y := x + 3)

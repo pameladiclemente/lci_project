@@ -4,29 +4,12 @@ type for the abstract syntax tree, and a type check function
 that given a MiniTyFun term returns Someτ if τ is its type or None if it cannot be typed. *)
 
 (* MiniTyFun syntax *)
-module MiniTyFun = struct
 
   (* Types *)
   type allowed_types =
     | IntType 
     | BoolType 
     | FunType of allowed_types * allowed_types
-
-  (* Operators *)
-  type op =
-    | Add
-    | Sub
-    | Mul
-    | Div
-    | Mod
-    | LessThan
-    | LessThanEqual   
-    | GreaterThan     
-    | GreaterThanEqual 
-    | Equal
-    | And
-    | Or
-    | Not
 
   (* Terms with type annotations *)
   type term =
@@ -54,27 +37,27 @@ module MiniTyFun = struct
 
 
   (* Defining the environment ( = the memory) as a Map *)
-  (* Typing context: mapping variables to their types *)
+  (* Typing context: mapping variables to their types, not values *)
   module StringMap = Map.Make(String)
   type memory = allowed_types StringMap.t
 
   (* Lookup a variable's type in the context *)
-  let lookup (x : string) (m : memory) : allowed_types =
-    try StringMap.find x m
-    with Not_found -> failwith ("Variable not found: " ^ x)
+  let lookup (var : string) (mem : memory) : allowed_types option =
+    try Some (StringMap.find var mem)
+    with Not_found -> None
 
   (* Evaluating types *)
- let rec type_check (m : memory) (t : term) : allowed_types option =
+ let rec check_type (mem : memory) (t : term) : allowed_types option =
   match t with
-  | Integer _ -> Some IntType
-  | Boolean _ -> Some BoolType
-  | Variable x -> (try Some (lookup x m) with Failure _ -> None)
+  | Integer n -> Some IntType
+  | Boolean bool -> Some BoolType
+  | Variable var -> lookup var mem
   | Add (t1, t2)
-  | Sub (t1, t2)
-  | Mul (t1, t2)
-  | Div (t1, t2)
+  | Sub (t1, t2) 
+  | Mul (t1, t2) 
+  | Div (t1, t2) 
   | Mod (t1, t2) ->
-      (match (type_check m t1, type_check m t2) with
+      (match (check_type mem t1, check_type mem t2) with
        | Some IntType, Some IntType -> Some IntType
        | _ -> None)
   | LessThan (t1, t2)
@@ -82,37 +65,37 @@ module MiniTyFun = struct
   | GreaterThan (t1, t2)
   | GreaterThanEqual (t1, t2)
   | Equal (t1, t2) ->
-      (match (type_check m t1, type_check m t2) with
+      (match (check_type mem t1, check_type mem t2) with
        | Some IntType, Some IntType -> Some BoolType
        | _ -> None)
   | And (t1, t2)
   | Or (t1, t2) ->
-      (match (type_check m t1, type_check m t2) with
+      (match (check_type mem t1, check_type mem t2) with
        | Some BoolType, Some BoolType -> Some BoolType
        | _ -> None)
   | Not t ->
-      (match type_check m t with
+      (match check_type mem t with
        | Some BoolType -> Some BoolType
        | _ -> None)
   | If (t1, t2, t3) ->
-      (match type_check m t1, type_check m t2, type_check m t3 with
+      (match check_type mem t1, check_type mem t2, check_type mem t3 with
        | Some BoolType, Some type_t2, Some type_t3 when type_t2 = type_t3 -> Some type_t2
        | _ -> None)
-  | Function (x, type_x, body) ->
-      (match type_check (StringMap.add x type_x m) body with
-       | Some type_body -> Some (FunType (type_x, type_body))
+  | Function (var, type_var, body) ->
+      (match check_type (StringMap.add var type_var mem) body with
+       | Some type_body -> Some (FunType (type_var, type_body))
        | None -> None)
-  | FunctionApplication (t1, t2) ->
-      (match type_check m t1, type_check m t2 with
+  | FunctionApplication (f, var) ->
+      (match check_type mem f, check_type mem var with
        | Some (FunType (type_param, type_return)), Some type_arg when type_param = type_arg -> Some type_return
        | _ -> None)
-  | Let (x, t1, t2) ->
-      (match type_check m t1 with
-       | Some type_t1 -> type_check (StringMap.add x type_t1 m) t2
+  | Let (var, value, body) ->
+      (match check_type mem value with
+       | Some type_t1 -> check_type (StringMap.add var type_t1 mem) body
        | None -> None)
-  | LetFun (f, x, type_x, type_return, t1, t2) ->
-      let mem' = StringMap.add f (FunType (type_x, type_return)) (StringMap.add x type_x m) in
-      (match type_check mem' t1 with
-       | Some type_body when type_body = type_return -> type_check (StringMap.add f (FunType (type_x, type_return)) m) t2
+  | LetFun (f, var, type_var, type_return, body, expr) ->
+      let new_mem = StringMap.add f (FunType (type_var, type_return)) (StringMap.add var type_var mem) in
+      (match check_type new_mem body with
+       | Some type_body when type_body = type_return -> check_type (StringMap.add f (FunType (type_var, type_return)) mem) expr
        | _ -> None)
-  end
+  

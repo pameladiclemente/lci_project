@@ -4,9 +4,9 @@
 %}
 
 %token <int> INT
-%token <int> BOOL
+%token <bool> BOOL
 %token <string> IDENT
-%token PLUS MINUS TIMES DIVIDE MODULO
+%token PLUS MINUS TIMES DIVIDE MODULO 
 %token LT LE GT GE EQ 
 %token AND OR NOT
 %token LPAREN RPAREN
@@ -23,12 +23,13 @@
 %start program 
 
 /* lowest precedence */
-%left PLUS MINUS 
-%left TIMES DIVIDE MODULO  
-%left OR    
-%left AND      
-%right NOT  
+%left OR
+%left AND
+%right NOT
+%left PLUS MINUS
+%left TIMES DIVIDE MODULO
 %left SEQUENCE
+
 %%
 
 program:

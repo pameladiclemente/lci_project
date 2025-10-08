@@ -1,0 +1,13 @@
+// Example 5: Logical operations with booleans
+
+// Example tests:
+// input x = 2, output y = 1
+// input x = 10, output y = 0
+// input x = -10, output y = 0
+// input x = -4, output y = 1
+
+def main with input x output y as (
+  if (x < 5) && (x > -5)
+  then (y := 1)
+  else (y := 0)
+)
