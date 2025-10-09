@@ -1,0 +1,10 @@
+// Let binding with a local function 
+
+// input 5, output 6
+// input -3, output 3
+
+let x = input in
+  (if not (x < 0) then
+   (x + 1)
+  else
+    (-x))

@@ -1,0 +1,13 @@
+// Complex nested functions and booleans 
+
+// input 2, output 12
+// input 4, output 3
+
+  let x = input in (
+  letfun f n =
+    if n < 3 then
+      (fun y => (y + 10))   
+    else
+      (fun z => (z - 1))   
+  in
+  ((f x) x))

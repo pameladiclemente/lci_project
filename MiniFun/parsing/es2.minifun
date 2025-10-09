@@ -1,0 +1,7 @@
+// Nested function applications 
+
+// input 3, output 12
+// input 6, output 21
+
+let f = (fun g => (g (input + 1))) in
+  (f (fun y => (y * 3)))

@@ -18,6 +18,7 @@ type term =
   | And of term * term                          (* t1 && t2 *)
   | Or of term * term                           (* t1 || t2 *)
   | Not of term                                 (* not t *)
+  | NotInt of term                              (* -t *)
   | LessThan of term * term                     (* t1 < t2 *)
   | LessThanEqual of term * term                (* t1 <= t2 *)
   | GreaterThan of term * term                  (* t1 > t2 *)
@@ -114,8 +115,12 @@ type term =
         let v1 = eval_term t1 mem in
         (match v1 with
         | MemBoolean b -> MemBoolean (not b)
-        | MemInteger i -> MemInteger (-i)
-        | _ -> failwith "Type error: logical 'not' requires a boolean or an integer")
+        | _ -> failwith "Type error: logical 'not' requires a boolean")
+    | NotInt (t1) ->
+          let v1 = eval_term t1 mem in
+          (match v1 with
+          | MemInteger i -> MemInteger (-i)
+          | _ -> failwith "Type error: unary minus requires an integer")
     | LessThan (t1, t2) ->
       let v1 = eval_term t1 mem in
       let v2 = eval_term t2 mem in

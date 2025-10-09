@@ -1,8 +1,0 @@
-let x = input in
-
-letfun isnegative n = 
-    if n < 0 then out true 
-    else out false
-in
-
-isnegative x
