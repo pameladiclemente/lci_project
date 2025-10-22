@@ -26,7 +26,7 @@ val new_node_id : unit -> node_id
 val create_node : MiniImp.cmd list -> node_id list -> node
 
 (* CFG construction for a command (cmd) *)
-val build_cmd : MiniImp.cmd -> node_id -> cfg -> node_id * cfg
+val cmd_node : MiniImp.cmd -> node_id -> cfg -> node_id * cfg
 
 (* CFG construction for a complete program *)
 val build_cfg : MiniImp.program -> cfg
