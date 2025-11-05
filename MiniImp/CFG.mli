@@ -31,11 +31,8 @@ val cmd_node : MiniImp.cmd -> node_id -> cfg -> node_id * cfg
 (* CFG construction for a complete program *)
 val build_cfg : MiniImp.program -> cfg
 
-
-
-(* DATAFLOW ANALYSIS *)
-(* Checking if there are used variables before without inizialization *)
-val check_uninitialized_variables : cfg -> string -> bool 
+(* Checking for undefined variables *)
+val defined_variables : cfg -> string -> bool 
 
 
 

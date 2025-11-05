@@ -1,169 +1,119 @@
-module LivenessAnalysis = struct
+open MiniRISC
 
-  (* Creiamo un Set di stringhe per rappresentare i registri vivi; 
-  usiamo StringSet perchè vogliamo solo sapere quali registri/variabili sono vivi in un dato punto del programma *)
-  module StringSet = Set.Make(String)
+(* Modulo LivenessAnalysis
+ *
+ * Implementa il Punto 2 della slide 162: "compute liveness analysis".
+ * Questa è una BACKWARD analysis (fluisce dalla fine all'inizio).
+ * L'operatore di "merge" (join) è l'UNIONE (∪), perché un registro
+ * è vivo se è usato in *almeno uno* dei percorsi futuri (slide 161).
+ * Si calcola il LEAST FIXPOINT (LFP) (Slide 196): si parte
+ * da ∅ (Bottom, nulla è vivo) e si aggiungono registri man mano
+ * che si scoprono i loro usi futuri.
+ *)
 
-  (* Funzione principale per la Liveness Analysis;
-  prende in input un risc_cfg e restituisce una mappa (Hashtbl) che associa a ogni blocco:
-  live_in: registri vivi prima del blocco.
-  live_out: registri vivi dopo il blocco.*)
-  let compute_liveness (cfg : MiniRISC.risc_cfg) : (MiniRISC.label, StringSet.t * StringSet.t) Hashtbl.t =
+module StringSet = Set.Make(String)
+
+(* Funzione helper per estrarre registri usati (use) e definiti (def) da una singola istruzione MiniRISC.
+ * Questa logica è fondamentale per la formula "lub" della slide 161. *)
+ (* '_' è per tutti i valori diversi sa registri, che non ci interessano *)
+let use_def_registers (instr : MiniRISC.instruction) : (StringSet.t * StringSet.t) =
+  let (use_list, def_list) = match instr with
+    | MiniRISC.Brop (_, r1, r2, r3) -> ([r1; r2], [r3])
+    | MiniRISC.Biop (_, r1, _, r2) -> ([r1], [r2])
+    | MiniRISC.Urop (_, r1, r2) -> ([r1], [r2])
+    | MiniRISC.Load (r1, r2) -> ([r1], [r2])
+    | MiniRISC.LoadI (_, r) -> ([], [r])
+    | MiniRISC.Store (r1, r2) -> ([r1; r2], [])
+    | MiniRISC.CJump (r, _, _) -> ([r], [])
+    | MiniRISC.Nop | MiniRISC.Jump _ -> ([], [])
+  in
+  (StringSet.of_list use_list, StringSet.of_list def_list)
+
+(* Funzione principale per calcolare la Liveness Analysis.
+ * Prende il CFG di MiniRISC e il nome del registro di output.
+ * Restituisce una Hashtbl che mappa ogni etichetta (label)
+ * a una coppia (live_in, live_out) di set di registri. *)
+let liveness (cfg : MiniRISC.risc_cfg) (output : string) : (MiniRISC.label, StringSet.t * StringSet.t) Hashtbl.t =
+  
+  let liveness_table = Hashtbl.create (List.length cfg.blocks) in
+
+  (* 1. INIZIALIZZAZIONE (Least Fixpoint: partiamo da ∅ - Bottom) *)
+  List.iter (fun (label, _) ->
+    (* Inizializziamo live_in e live_out di tutti i blocchi a ∅ *)
+    Hashtbl.add liveness_table label (StringSet.empty, StringSet.empty)
+  ) cfg.blocks;
+
+  (* REQUISITO SLIDE 161/162: "mind... out which is always used"
+   * Forziamo il registro di output ad essere "vivo"
+   * all'ingresso del blocco terminale. Questo agisce da "seme"
+   * per l'analisi backward. *)
+  let terminal_live_in = StringSet.singleton output in
+  let _, terminal_live_out = Hashtbl.find liveness_table cfg.terminal_node in
+  Hashtbl.replace liveness_table cfg.terminal_node (terminal_live_in, terminal_live_out);
+
+
+  (* 2. CALCOLO DEL PUNTO FISSO (Iterativo) *)
+  let changed = ref true in
+  while !changed do
+    changed := false;
     
-    (* 
-    Creiamo una tabella hash (Hashtbl) per memorizzare live_in e live_out di ogni blocco.
-    50 è un valore arbitrario scelto per la capacità iniziale della tabella. 
-    Usiamo una Hashtbl perchè rispetto a StringMap è più veloce O(1) e perchè StrigMap.Add
-    ogni volta restituisce una nuova tabella, meno efficiente *)
-    let liveness_table = Hashtbl.create 50 in
-
-    (* 
-    Riferimento: Slide 15 ("Analysis State")
-
-    Ogni blocco in cfg.blocks inizia con live_in = ∅ (= insieme di variabili vive all'inizio di un blocco (cioè usate prima di essere ridefinite)) 
-    e live_out = ∅ (= insieme di variabili vive alla fine di un blocco (cioè ancora necessarie nei blocchi successivi).).
-    Usiamo List.iter per iterare su tutti i blocchi e inizializzarli nella Hashtbl.
-    Per ogni blocco (block), inserisce in liveness_table:
-    - live_in = ∅ -> StringSet.empty (nessuna variabile è viva all'inizio).
-    - live_out = ∅ -> StringSet.empty (nessuna variabile è viva alla fine)
-        
-    Inizializziamo live_in e live_out per ogni blocco *)
-    List.iter (fun (labelled_block, _) ->
-      Hashtbl.add liveness_table labelled_block (StringSet.empty, StringSet.empty)
-    ) cfg.MiniRISC.blocks;
-
-    (* Riferimento: Slide 15 ("Global Update applies all the local updates as before.")
-
-    Algoritmo iterativo: ripetiamo il calcolo finché live_in e live_out non cambiano più, per cui avviene la
-    dichiarazione della variabile changed, che tiene traccia se ci sono state modifiche in questa iterazione.
-    Ripetiamo il calcolo finché i valori non smettono di cambiare *)
-
-    let do_update = ref true in
-    while !do_update do
-
-      (* Impostiamo do_update a false:
-      Se, alla fine dell'iterazione, live_in o live_out cambiano, lo reimposteremo a true per ripetere il ciclo.
-      Se do_update rimane false, significa che abbiamo raggiunto il punto fisso e possiamo terminare.*)
-      do_update := false;
-
+    (* Iteriamo su tutti i blocchi *)
+    List.iter (fun (label, block) ->
       
-      (*  Riferimento: Slide 15 ("Analysis State")
-      Iteriamo su tutti i blocchi del CFG.
-      - labelled_block è l'etichetta del blocco (es. "L1", "L2").
-      - block è la struttura del blocco, che contiene:
-          - instructions: la lista di istruzioni del blocco.
-          - successors: la lista di blocchi successori. *)
-      List.iter (fun (labelled_block, block) ->
+      let old_live_in, old_live_out = Hashtbl.find liveness_table label in
 
-        (* Recuperiamo i vecchi valori di live_in e live_out per il blocco corrente:
-        Questo ci permette di confrontarli dopo l'aggiornamento; Se i valori rimangono gli stessi, l'algoritmo terminerà presto *)
-        let old_live_in, old_live_out = Hashtbl.find liveness_table labelled_block in
+      (* 2a. Calcola new_live_out(L) = ∪(S ∈ succ(L)) live_in(S) *)
+      (* (Formula "lucf" slide 161, il merge è l'UNIONE) *)
+      let new_live_out =
+        List.fold_left (fun computed_live_registers successor_label ->
+          let succesor_live_in, _ = Hashtbl.find liveness_table successor_label in
+          StringSet.union computed_live_registers succesor_live_in
+        ) StringSet.empty block.edges 
+      in
+      (* Alla fine del 'fold', 'new_live_out' conterrà l'unione dei set 'live_in'
+      di *tutti* i successori in 'block.edges', che è esattamente
+      l'implementazione della formula della slide 161. *)
 
-        (* 
-        Riferimento: Slide 15 ("Local Update - From a block to the others")
+      (* 2b. Calcola use(L) e def(L) del blocco
+       * Scorre le istruzioni ALL'INDIETRO (List.fold_right)
+       * per propagare la "vità" (liveness) verso l'alto. *)
+      let block_use_reg, block_def_reg = 
+        List.fold_right (fun instruction (computed_use_reg, computed_def_reg) ->
+          let instruction_use_reg, instruction_def_reg = use_def_registers instruction in
+          (* Formula (slide 161):
+           * use(B) = use(i) ∪ (use(B_dopo) - def(i))
+           * def(B) = def(i) ∪ def(B_dopo)
+           *)
+          let new_use_reg = StringSet.union instruction_use_reg (StringSet.diff computed_use_reg instruction_def_reg) in
+          let new_def_reg = StringSet.union instruction_def_reg computed_def_reg in
+          (new_use_reg, new_def_reg)
+        ) block.statements (StringSet.empty, StringSet.empty) 
+      in
 
-        Calcoliamo il nuovo live_out per il blocco attuale:
-        1. Per ogni successore succ_block, prendiamo il suo live_in.
-        2. Facciamo l'unione (union) di tutti i live_in dei successori (perchè così è la regola: 
-        live_out di un blocco è l'unione (⋃) di live_in dei suoi successori).
-        3. Se il blocco ha più successori, live_out sarà l'unione di tutti i loro live_in. *)
-        let new_live_out =
-          List.fold_left (fun acc succ_block ->
-            let succ_live_in, _ = Hashtbl.find liveness_table succ_block in
-            StringSet.union acc succ_live_in
-          ) StringSet.empty block.MiniRISC.successors
-        in
+      (* 2c. Calcola new_live_in(L) = use(L) ∪ (live_out(L) - def(L)) *)
+      (* (Formula "lub" slide 161) *)
+      let new_live_in = 
+        StringSet.union block_use_reg (StringSet.diff new_live_out block_def_reg)
+      in
+      
+      (* Seme: il live_in del nodo terminale è sempre {out} *)
+      let final_new_live_in = 
+        if label = cfg.terminal_node then
+          terminal_live_in
+        else
+          new_live_in
+      in
 
-        (* 
-        Riferimento: Slide 15 ("Local Update - From the block itself")
+      (* 3. CONTROLLO STABILITÀ *)
+      if not (StringSet.equal old_live_in final_new_live_in && 
+              StringSet.equal old_live_out new_live_out) 
+      then (
+        Hashtbl.replace liveness_table label (final_new_live_in, new_live_out);
+        changed := true
+      )
+    ) cfg.blocks;
+  done;
 
-        Dobbiamo determinare used_registers e defined_registers, ovvero:
-        - used_registers: variabili usate nel blocco, che quindi devono essere già vive.
-        - defined_registers: variabili definite nel blocco, che quindi sovrascrivono il valore precedente.
-        
-        ! fold_left scorre tutte le istruzioni nel blocco e accumula used_registers e defined_registers.
-        
-        Usiamo fold_left per accumulare tutti i registri usati e definiti nel blocco.
-                
-        live_in = (registri usati in questo blocco) ∪ (live_out - registri definiti) *)
-        let used_registers, defined_registers =
-
-        (* fold_left è una funzione di riduzione che scorre una lista accumulando un valore intermedio; L'accumulatore acc è il valore intermedio che si aggiorna a ogni iterazione di fold_left..
-        Calcolare live_out di un blocco come l'unione (∪) di live_in di tutti i suoi successori.
-        Passaggi nel codice
-          1. Valore iniziale → StringSet.empty (insieme vuoto).
-          2. Iteriamo sui successori (block.MiniRISC.successors).
-          3. Per ogni successore succ_block:
-              - Prendiamo il suo live_in dalla tabella liveness_table.
-              - Facciamo l'unione (union) con acc (valore accumulato).
-          4. Alla fine, acc contiene live_out, che è l'unione di tutti i live_in dei successori.
-          ! Conclusione: Questo garantisce che se un registro è live all'inizio di un successore, deve essere live alla fine del blocco corrente.
-
-
-        Partiamo con due insiemi vuoti: used_registers = ∅, defined_registers = ∅.
-        uses e defs sono l'accumulatore, cioè gli insiemi aggiornati ad ogni iterazione. 
-        Identifichiamo used_registers e defined_registers per l'istruzione corrente *)
-        
-          List.fold_left (fun (uses, defs) instr ->
-
-
-            (* Identifichiamo used_registers e defined_registers per ogni tipo di istruzione:
-            Brop (op, r1, r2, r3): usa r1, r2, definisce r3.
-            Load (_, r): definisce r, ma non usa nessun registro.
-            Store (r1, _): usa r1, ma non definisce nulla.
-            CJump (r, _, _): usa r per la condizione di salto.
-            
-            
-            Perché non consideriamo Nop in use_regs e def_regs? Nop (No Operation) è un'istruzione speciale che non fa nulla.
-            Nel contesto della Liveness Analysis, ha due caratteristiche chiave:
-            Non usa registri (use_regs = []) perché non legge nessun valore.
-            Non definisce registri (def_regs = []) perché non scrive nulla.*)
-            let u, d = match instr with
-              | MiniRISC.Brop (_, r1, r2, r3) -> ([r1; r2], [r3])
-              | MiniRISC.Biop (_, r1, _, r2) -> ([r1], [r2])
-              | MiniRISC.Urop (_, r1, r2) -> ([r1], [r2])
-              | MiniRISC.Load (_, r) -> ([], [r])
-              | MiniRISC.LoadI (_, r) -> ([], [r])
-              | MiniRISC.Store (r1, _) -> ([r1], [])
-              | MiniRISC.CJump (r, _, _) -> ([r], [])
-              | _ -> ([], [])
-            in
-
-            (* Accumula used_registers e defined_registers per tutte le istruzioni del blocco:
-            1. Prendiamo i registri usati e definiti dall'istruzione corrente.
-            2. Aggiungiamo questi registri ai Set uses e defs; uses ∪ {u}, defs ∪ {d}.
-            Alla fine, used_registers e defined_registers conterranno tutti i registri usati e definiti nel blocco.*)
-            (StringSet.union uses (StringSet.of_list u),
-             StringSet.union defs (StringSet.of_list d))
-          ) (StringSet.empty, StringSet.empty) block.MiniRISC.instructions
-        in
-
-        (* 
-        Riferimento: Slide 15
-        Per la regola di liveness ("lub(lvin(L)) = {r used in L} ∪ (lvout(L) \ {r defined in L})"),
-        le variabili usate (used_registers) sono sempre live_in;
-        Le variabili definite (defined_registers) non sono più necessarie perché vengono sovrascritte.
-        Le variabili in live_out che non vengono ridefinite rimangono live_in. *)
-        let new_live_in = StringSet.union used_registers (StringSet.diff new_live_out defined_registers) in
-
-        (*
-        
-        Riferimento: Slide 15 ("Global Update applies all the local updates as before.")
-
-        Se live_in o live_out sono cambiati, aggiorniamo la Hashtbl.
-        Se c'è un cambiamento, ripetiamo il calcolo (do_update := true).*)
-        if not (StringSet.equal old_live_in new_live_in && StringSet.equal old_live_out new_live_out) then (
-          Hashtbl.replace liveness_table labelled_block (new_live_in, new_live_out);
-          do_update := true
-        )
-        (* Riferimento: Slide 15 ("Global Update applies all the local updates as before.")
-
-        Ripetiamo finché raggiungiamo un punto fisso.
-        Restituiamo la tabella con i risultati. *)
-      ) cfg.MiniRISC.blocks;
-    done;
-
-    liveness_table
-end
-
+  (* Restituisce la tabella completa con i risultati finali *)
+  liveness_table
 

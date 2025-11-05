@@ -1,3 +1,5 @@
+module StringSet = Set.Make(String)
+
 (* Unique ID for node *)
 type node_id = int 
 
@@ -62,80 +64,225 @@ let build_cfg (program : MiniImp.program) : cfg =
 
 
 
-(*
-(* DATAFLOW ANALYSIS 
+(* Dataflow Analysis, defined variables *)
+
+(* --- FUNZIONE PER SLIDE 162, PUNTO 1 --- *)
+
+(* Phase 1: helper functions... 
+   ... to extract variables used by a_exp or b_exp *)
+let rec vars_in_a_exp (a_exp : MiniImp.a_exp) : StringSet.t =
+  match a_exp with
+  | Integer n -> StringSet.empty
+  | Variable v -> StringSet.singleton v
+  | Add (a1, a2) 
+  | Sub (a1, a2) 
+  | Mul (a1, a2) 
+  | Div (a1, a2) 
+  | Mod (a1, a2) -> StringSet.union (vars_in_a_exp a1) (vars_in_a_exp a2)
+  | NotInt n -> vars_in_a_exp n
+
+let rec vars_in_b_exp (b_exp : MiniImp.b_exp) : StringSet.t =
+  match b_exp with
+  | Boolean b -> StringSet.empty
+  | And (b1, b2) 
+  | Or (b1, b2) -> StringSet.union (vars_in_b_exp b1) (vars_in_b_exp b2)
+  | NotBool b -> vars_in_b_exp b
+  | LessThan (a1, a2) 
+  | LessThanEqual (a1, a2) 
+  | GreaterThan (a1, a2) 
+  | GreaterThanEqual (a1, a2) 
+  | Equal (a1, a2) -> StringSet.union (vars_in_a_exp a1) (vars_in_a_exp a2)
+
+(* ... to extract variables used and defined in cmd *)
+let vars_in_cmd (cmd : MiniImp.cmd) : (StringSet.t * StringSet.t) =
+  match cmd with
+  | Assign (v, a_exp) -> (vars_in_a_exp a_exp, StringSet.singleton v)
+  | If (b_exp, cmd1, cmd2) -> (vars_in_b_exp b_exp, StringSet.empty)
+  | While (b_exp, cmd) -> (vars_in_b_exp b_exp, StringSet.empty)
+  | Skip -> (StringSet.empty, StringSet.empty)
+  | Seq (cmd1, cmd2) -> (StringSet.empty, StringSet.empty)
 
 
-Usiamo un Hashtbl (defined_vars) per tracciare quali variabili sono definite.
-Aggiungiamo la variabile di input (input_var) come inizializzata.
-check_instr analizza ogni comando:
-Se è un assegnamento (Assign), controlla che le variabili usate siano inizializzate.
-Se è una condizione (If, While), verifica che tutte le variabili nei confronti siano definite.
-Dopo un'assegnazione, aggiungiamo la variabile all'insieme di quelle inizializzate.
-Iteriamo su tutti i blocchi del CFG.
-Se troviamo errori, stampiamo un messaggio e restituiamo false.*)
+(* * Implementazione della "Definite Variables Analysis" (slide 146, 165).
+ * Questa è una FORWARD analysis.
+ * L'operatore di "merge" (join) è l'INTERSEZIONE (∩), perché una variabile
+ * è "sicuramente definita" all'ingresso di un blocco L solo se è
+ * "sicuramente definita" all'uscita di TUTTI i suoi predecessori.
+ *)
+let defined_variables (cfg : cfg) (input : string) : bool =
+  
+  (* Phase 2: Computation of auxiliary structures *)
+  (* Predecessor map *)
+  let predecessors = Hashtbl.create (List.length cfg.nodes) in
 
-(* Controllo che nessuna variabile sia usata prima di essere inizializzata *)
-let check_uninitialized_variables (cfg : cfg) (input_var : string) : bool =
-  let defined_vars = Hashtbl.create 50 in
-  let errors = ref false in
+  (* Inizia a scorrere l'intera lista di nodi nel grafo. Per ogni nodo...*)
+  List.iter (fun (id, node) ->
+    (* ...inizia un ciclo per scorrere la lista dei successori di L1. *)
+    List.iter (fun next_id ->
+      (* Per ogni suo successore, cerca nella tabella 'predecessors' la lista attuale per L5.*)
+      let current_predecessors = 
+        try Hashtbl.find predecessors next_id 
+        with Not_found -> [] in (* Se L5 non è ancora nella tabella, la sua lista è vuota. *)
 
-  (* Aggiungiamo la variabile di input come già inizializzata *)
-  Hashtbl.add defined_vars input_var true;
-
-  (* Funzione per controllare tutte le variabili usate in un'espressione aritmetica *)
-  let rec vars_in_a_exp = function
-    | MiniImp.Integer _ -> []
-    | Variable v -> [v]
-    | Add (a1, a2) | Sub (a1, a2) | Mul (a1, a2) | Div (a1, a2) | Mod (a1, a2) -> vars_in_a_exp a1 @ vars_in_a_exp a2
-  in
-
-  (* Funzione per controllare tutte le variabili usate in un'espressione booleana *)
-  let rec vars_in_b_exp = function
-    | MiniImp.Boolean _ -> []
-    | And (b1, b2) | Or (b1, b2) -> vars_in_b_exp b1 @ vars_in_b_exp b2
-    | Not b -> vars_in_b_exp b
-    | LessThan (a1, a2) | LessThanEqual (a1, a2) | GreaterThan (a1, a2) | GreaterThanEqual (a1, a2) | Equal (a1, a2) ->
-        vars_in_a_exp a1 @ vars_in_a_exp a2
-  in
-
-  (* Funzione per controllare una singola istruzione *)
-  let check_instr instr =
-    match instr with
-    | MiniImp.Assign (x, a_exp) ->
-        List.iter (fun v ->
-          if not (Hashtbl.mem defined_vars v) then (
-            Printf.printf "Errore: La variabile %s è usata prima di essere inizializzata!\n" v;
-            errors := true
-          )
-        ) (vars_in_a_exp a_exp);
-        Hashtbl.replace defined_vars x true
-
-    | If (b_exp, _, _) | While (b_exp, _) ->
-        List.iter (fun v ->
-          if not (Hashtbl.mem defined_vars v) then (
-            Printf.printf "Errore: La variabile %s è usata prima di essere inizializzata!\n" v;
-            errors := true
-          )
-        ) (vars_in_b_exp b_exp)
-
-    | _ -> ()
-  in
-
-  (* Controlliamo ogni blocco nel CFG *)
-  List.iter (fun (_, block) ->
-    List.iter check_instr block.code
+      (* Aggiorna la tabella: La nuova lista di predecessori per L5 sarà [L1 :: (lista vecchia)]. *) 
+        Hashtbl.replace predecessors next_id (id :: current_predecessors)
+      (* Il ciclo interno finisce. Ora prende il prossimo successore (next_id = L6) e ripete: "Aggiungi L1 alla lista dei predecessori di L6".*)
+    ) node.edges
+    (* Il ciclo esterno finisce. Prende il prossimo nodo (es. L2) e ripete l'intero processo. *)
   ) cfg.nodes;
 
-  not !errors  (* Ritorna true se tutto è corretto, false se ci sono errori *)
 
+  (* Calcoliamo il set 'defs(L)' per ogni blocco L: variabili definite *all'interno* del blocco L. 
+  Il suo scopo è analizzare una volta sola il contenuto di ogni blocco del CFG per rispondere alla domanda: 
+  "Quali variabili vengono definite (cioè, ricevono un valore) all'interno di questo blocco?"
+  Questo calcolo è necessario per implementare la formula lub (Local Update - Block)
+  La formula è: dvout(L) = dvin(L) ∪ defs(L)  
+    • dvin(L) è lo stato d'ingresso (calcolato dal flusso di controllo).
+    • defs(L) è esattamente ciò che questo blocco di codice sta calcolando: l'insieme delle variabili definite localmente nel blocco L. *)
 
-(*Costruzione minimale, massimale o intermedia?
-Minimale: Blocchi di base senza nodi inutili.
-Massimale: Blocchi singoli per ogni comando.
-Intermedia: Ogni nodo rappresenta un comando o una sequenza lineare di comandi.
-La mia implementazione è intermedia:
+  let block_definitions = Hashtbl.create (List.length cfg.nodes) in
+  (* 2. Itera su ogni nodo (blocco) nel CFG (es. id=L5, node=...) *)
+  List.iter (fun (id, node) ->
+    (* 3. Per questo blocco, calcola il set totale delle sue definizioni.
+     'List.fold_left' è usato per accumulare un singolo valore (un set)
+     scorrendo una lista (i comandi del blocco). *)
+    let definitions = List.fold_left (fun computed_definitions cmd ->
+      (* 'computed_definitions' è il set di definizioni trovate finora (es. {"y"}); 'cmd' è il comando corrente (es. Assign("z", ...)). *)
 
-Ogni nodo rappresenta un singolo comando o una sequenza massimale di comandi senza diramazioni.*)
+      (* 4. Chiama la funzione helper per analizzare il comando 'cmd'. *)
+      let _, definitions_in_cmd = vars_in_cmd cmd in (* _ perchè ignora le variabili usate *)
+      (* 'def_vars' conterrà il set delle variabili definite da 'cmd'.
+       - Se cmd è Assign("z", ...), def_vars è {"z"}.
+       - Se cmd è If(...) o While(...), def_vars è {} (perchè l'assegnazione avviene in un *altro* nodo). *)
 
-*)
+    (* 5. Fa l'unione (∪) tra il set accumulato e le nuove definizioni. es. StringSet.union {"y"} {"z"} = {"y", "z"} *)
+      StringSet.union computed_definitions definitions_in_cmd
+
+      (* 6. 'StringSet.empty' è il valore iniziale dell'accumulatore 'computed_definitions'. 'node.statements' è la lista di comandi su cui iterare. *)
+    ) StringSet.empty node.statements in
+
+    (* 7. Alla fine del 'fold', 'defs' contiene il set completo di tutte le variabili definite in *qualsiasi* comando all'interno del blocco L5 (es. {"y", "z"}). *)
+  (* 8. Memorizza il risultato nella tabella hash. *)
+    Hashtbl.add block_definitions id definitions
+  ) cfg.nodes;
+
+  (* Phase 3: Initialization for the Greatest Fixpoint (GFP) *)
+  (* Creiamo le tabelle per dvin(L) e dvout(L) per ogni blocco L *)
+  let dvin_table = Hashtbl.create (List.length cfg.nodes) in
+  let dvout_table = Hashtbl.create (List.length cfg.nodes) in
+
+  (* Inizializziamo dvin(entry) = {input_var}, dvin(L) = {} per gli altri; inizializziamo tutti i dvout(L) = {} *)
+  (* 1. Calcoliamo 'top' (l'elemento Top) prendendo l'unione (∪) di tutte le variabili
+   definite in *tutti* i blocchi (che abbiamo pre-calcolato in 'block_definitions') e aggiungendo anche la 'input'. 
+   Con _ ignoriamo quale blocco stiamo considerando, non ci interessa, li vogliamo tutti *)
+
+   (* fold crea l'accumulatore computed_definitions = {"input"}*)
+  let top = Hashtbl.fold (fun _ definitions computed_definitions -> 
+    StringSet.union computed_definitions definitions
+    ) block_definitions (StringSet.singleton input) in
+
+  (* 2. Iteriamo su tutti i nodi per impostare il loro stato iniziale *)
+  List.iter (fun (id, _) ->
+
+    (* Entry node *)
+    if id = cfg.entry_node then (
+      Hashtbl.add dvin_table id (StringSet.singleton input);
+      Hashtbl.add dvout_table id (StringSet.union (StringSet.singleton input) (Hashtbl.find block_definitions id))
+   
+   (* Other nodes *)
+      ) else (
+      Hashtbl.add dvin_table id StringSet.empty;
+      Hashtbl.add dvout_table id top 
+    )
+  ) cfg.nodes;
+
+  (* Phase 4: Iterative Fixpoint Computation *)
+  let changed = ref true in
+  while !changed do
+    changed := false;
+    List.iter (fun (id, _) ->
+      (* Entry node *)
+      if id <> cfg.entry_node then (
+
+      (* Other nodes *)
+    
+      (* old_dvout: Ci servirà alla fine per vedere se qualcosa è cambiato. *)
+        let old_dvout = Hashtbl.find dvout_table id in
+        
+        (* new_dvin(L) computation *)
+        let predecessors_ids = try Hashtbl.find predecessors id with Not_found -> [] in
+        let new_dvin =
+          match predecessors_ids with
+          (* Se un nodo non ha predecessori (e non è l'entry), è irraggiungibile. Nessuna variabile è sicuramente definita al suo ingresso. *)
+          | [] -> StringSet.empty 
+          (* Se ci sono predecessori... *)
+          | h :: t ->
+              (* Inizializza l'intersezione con il dvout del primo predecessore *)
+              let first_dvout = Hashtbl.find dvout_table h in
+              (* Interseca con i dvout di tutti gli altri predecessori *)
+              List.fold_left (fun acc pred_id ->
+                StringSet.inter acc (Hashtbl.find dvout_table pred_id)
+              ) first_dvout t
+        in
+        (* Aggiorniamo la tabella dvin.*)
+        Hashtbl.replace dvin_table id new_dvin;
+
+        (* new_dvout(L) computation  *)
+        let block_def_set = Hashtbl.find block_definitions id in
+        let new_dvout = StringSet.union new_dvin block_def_set in
+
+        (* Stability check *)
+        if not (StringSet.equal old_dvout new_dvout) then (
+          (* I set sono DIVERSI! Questo significa che l'analisi non è stabile.*)
+        
+        (* Aggiorniamo la tabella 'dvout' con il nuovo valore, più preciso. *)
+          Hashtbl.replace dvout_table id new_dvout;
+        
+        (* impostiamo 'changed' a 'true'. Questo dice al ciclo 'while' che deve fare *almeno un'altra*
+           iterazione completa, perché questa modifica deve essere propagata ai successori di questo nodo. *)
+        changed := true
+      )
+    )
+  ) cfg.nodes
+done;
+(* When in here, we reached the fixpoint ('dvin_table' and 'dvout_table' are stable, 'changed' is false) *)
+
+(* Phase 5: Final Checking and Error Verification *)
+let errors = ref false in
+
+List.iter (fun (id, node) ->
+  
+  (* 1. Inizializzazione dell'analisi intra-blocco *)
+  (* 'current_defs' è un set mutabile che traccerà le variabili definite *mentre* scorriamo i comandi *dentro* questo blocco;
+   inizializziamo 'current_defs' con il risultato STABILE calcolato dal punto fisso per l'INGRESSO (dvin) di questo blocco. (es. dvin(L5) = {"x"}) *)
+  let current_defs = ref (Hashtbl.find dvin_table id) in
+  
+  (* 2. Iterazione sui comandi DEL BLOCCO *)
+  List.iter (fun cmd ->
+
+    (* Estraiamo le variabili USATE (use_vars) e DEFINITE (def_vars) da *questo specifico comando*. *)
+    let use_vars, def_vars = vars_in_cmd cmd in
+    
+    (* Check if 'v' is contained in 'current_defs' *)
+    List.iter (fun v ->
+    
+      if not (StringSet.mem v !current_defs) then (
+        let cmd_str = match cmd with
+          | Assign (x, _) -> "Assign(" ^ x ^ ", ...)"
+          | If _ -> "If(...)" | While _ -> "While(...)" | _ -> "Cmd"
+        in
+        Printf.printf "ERRORE nel Blocco L%d: La variabile '%s' è usata in '%s' ma non è sicuramente inizializzata!\n" 
+          id v cmd_str;
+          
+        errors := true
+      )
+    ) (StringSet.elements use_vars); 
+    
+    (* Update *)
+    current_defs := StringSet.union !current_defs def_vars
+
+  ) node.statements
+) cfg.nodes;
+
+not !errors
+

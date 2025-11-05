@@ -11,7 +11,7 @@
 %token AND OR NOT
 %token LPAREN RPAREN
 %token DEF MAIN WITH INPUT OUTPUT AS
-%token IF THEN ELSE WHILE DO 
+%token IF THEN ELSE WHILE DO SKIP
 %token ASSIGN SEQUENCE
 %token EOF
 
@@ -41,7 +41,6 @@ cmd:
   | c1 = cmd; SEQUENCE; c2 = cmd;                                                            { Seq(c1, c2) }
   | IF; b = b_exp; THEN; LPAREN; b_true = cmd; RPAREN; ELSE; LPAREN; b_false = cmd; RPAREN;  { If(b, b_true, b_false) }
   | WHILE; b = b_exp; DO; LPAREN; c1 = cmd; RPAREN;                                          { While(b, c1) }
-
 
 b_exp:
   | b = BOOL                        { Boolean(b) }

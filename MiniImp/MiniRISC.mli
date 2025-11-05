@@ -66,29 +66,29 @@ type risc_cfg = {
 }
 
 (* Funzioni di utilità per la generazione di etichette e registri *)
-val assign_label : unit -> label
+val new_label : unit -> label
 
-val assign_register : unit -> register
+val new_register : unit -> register
 
 (* Funzione per tradurre un'espressione aritmetica MiniImp in una lista di istruzioni MiniRISC *)
-val translate_a_exp : MiniImp.a_exp -> register -> instruction list
+val aexp_in_risc : MiniImp.a_exp -> register -> instruction list
 
 (* Funzione per tradurre un'espressione booleana MiniImp in una lista di istruzioni MiniRISC *)
-val translate_b_exp : MiniImp.b_exp -> register -> instruction list
+val bexp_in_risc : MiniImp.b_exp -> register -> instruction list
 
 (* Funzione per tradurre un nodo CFG MiniImp in un blocco MiniRISC *)
-val translate_node : CFG.node -> labelled_block
+val cfgnode_in_risc : CFG.node -> labelled_block
 
 (* Traduzione di un intero CFG di MiniImp a MiniRISC CFG *)
-val trans_in_riscfg : CFG.cfg -> risc_cfg
+val impcfg_in_riscfg : CFG.cfg -> risc_cfg
 
 (* TODO, INSTRUCTION TO STRING? *)
-val trans_in_risc : risc_cfg -> string
+val instruction_to_string : instruction -> string
 
-(* Controllo che nessun registro sia usato prima di essere definito *)
+(* Controllo che nessun registro sia usato prima di essere definito 
 val check_uninitialized_registers : risc_cfg -> bool
 
 (* TARGET CODE GENERATION *)
 val translate_instruction : int StringMap.t -> string list -> instr
 
-val translate_to_target : risc_cfg -> int -> risc_cfg 
+val translate_to_target : risc_cfg -> int -> risc_cfg *)

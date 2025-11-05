@@ -1,4 +1,5 @@
 (* MiniRISC.ml *)
+module StringSet = Set.Make(String)
 
 (* Identificatori per registri e etichette *)
 type register = string
@@ -52,7 +53,7 @@ type risc_cfg = {
 let label_counter = ref 0
 let register_counter = ref 0
 
-let assign_label () =
+let new_label () =
   let label = "L" ^ string_of_int !label_counter in
   incr label_counter;
   label
@@ -212,7 +213,23 @@ let riscfg_in_assembly (cfg : risc_cfg) : string =
   Buffer.contents buffer
 
 
-  (* TARGET CODE GENERATION 
+
+(* DATAFLOW ANALYSIS- LIVENESS *)
+(* Funzione helper per estrarre registri usati (use) e definiti (def) da un'istruzione 
+let get_use_def (instr : instruction) : (string list * string list) =
+  match instr with
+  | Brop (_, r1, r2, r3) -> ([r1; r2], [r3])
+  | Biop (_, r1, _, r2) -> ([r1], [r2])
+  | Urop (_, r1, r2) -> ([r1], [r2])
+  | Load (r1, r2) -> ([r1], [r2]) (* Usa r1 (indirizzo), definisce r2 (valore) *)
+  | LoadI (_, r) -> ([], [r]) (* Non usa registri, definisce r *)
+  | Store (r1, r2) -> ([r1; r2], []) (* Usa r1 (valore) e r2 (indirizzo) *)
+  | CJump (r, _, _) -> ([r], []) (* Usa r per la condizione *)
+  | Jump _ | Nop -> ([], []) *)
+
+
+
+  (* TARGET CODE GENERATION VERSIONE 1
 (* Controllo che nessun registro sia usato prima di essere definito *)
 let check_uninitialized_registers (cfg : risc_cfg) : bool =
   let defined_registers = Hashtbl.create 50 in
@@ -240,7 +257,7 @@ let check_uninitialized_registers (cfg : risc_cfg) : bool =
     List.iter check_instr block.statements
   ) cfg.blocks;
   not !errors
-
+*)
 
 
 
@@ -252,7 +269,7 @@ let check_uninitialized_registers (cfg : risc_cfg) : bool =
 
 
   
-
+(*
 
 (* Traduzione di MiniRISC CFG in MiniRISC con al massimo n registri; 
 Converte una singola istruzione MiniRISC in una forma compatibile con n registri.
