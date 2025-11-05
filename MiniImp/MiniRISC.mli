@@ -1,6 +1,8 @@
 (* MiniRISC.mli *)
+open MiniImp
+open CFG
 (* Identificatori per registri e etichette *)
-type register = string
+type register = string 
 type label = string
 
 (* Operazioni binarie, binarie immediate e unarie *)
