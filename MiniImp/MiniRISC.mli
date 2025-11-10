@@ -87,10 +87,8 @@ val impcfg_in_riscfg : CFG.cfg -> risc_cfg
 (* TODO, INSTRUCTION TO STRING? *)
 val instruction_to_string : instruction -> string
 
-(* Controllo che nessun registro sia usato prima di essere definito 
-val check_uninitialized_registers : risc_cfg -> bool
+(* Traduzione di MiniRISC CFG per un'architettura con `n` registri *)
+val translate_to_target : risc_cfg -> int -> risc_cfg
 
-(* TARGET CODE GENERATION *)
-val translate_instruction : int StringMap.t -> string list -> instr
-
-val translate_to_target : risc_cfg -> int -> risc_cfg *)
+(* Ottimizzazione: fusione dei registri basata sulla Liveness Analysis *)
+val optimize_registers : risc_cfg -> string -> risc_cfg
