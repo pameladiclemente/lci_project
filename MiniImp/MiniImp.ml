@@ -1,8 +1,17 @@
-(* Project fragment 1: 
-Create a module for MiniImp that exposes the type of the abstract syntax tree and an evaluation function. *)
+(* Project fragment: 
+Create a module for MiniImp that exposes the type of the AST and an evaluation function. *)
 
-(* MiniImp syntax 
- Arithmetic expressions; division, modulo and negative numbers have been included *)
+(* 
+MiniImp syntax
+
+The following types express:
+- Arithmetic expressions
+- Boolean expressions
+- Commands 
+- Programs 
+*)
+
+(* Division, modulo and negative numbers have been included *)
 type a_exp =
   | Integer of int                   (* n *)
   | Variable of string               (* x *)
@@ -13,7 +22,7 @@ type a_exp =
   | Mod of a_exp * a_exp             (* a1 % a2 *)
   | NotInt of a_exp                  (* -a1 *)
 
-(* Boolean expressions; <=, >=, >=, == have been included *)
+(* <=, >=, >=, ==, ! have been included *)
 type b_exp =
   | Boolean of bool                    (* v *)
   | And of b_exp * b_exp               (* b1 and b2 *)
@@ -25,7 +34,6 @@ type b_exp =
   | GreaterThanEqual of a_exp * a_exp  (* a1 >= a2 *)
   | Equal of a_exp * a_exp             (* a1 == a2 *)
 
-(* Commands *)
 type cmd =
   | Skip                            (* skip *)
   | Assign of string * a_exp        (* x := a *)
@@ -33,12 +41,11 @@ type cmd =
   | If of b_exp * cmd * cmd         (* if b then c1 else c2 *)
   | While of b_exp * cmd            (* while b do c *)
 
-(* Program *)
 type program = 
   | Program of string * string * cmd  (* def main with input x output y as c *)
 
 (* Memory:
-Defining the environment ( = the memory) as a Map *)
+Defining such environment as a Map of strings to integers. *)
 module StringMap = Map.Make(String)
 type memory = int StringMap.t
 
@@ -95,15 +102,15 @@ let rec eval_cmd (cmd : cmd) (mem : memory) : memory =
       eval_cmd cmd2 new_mem
   | If (bool, then_cmd, else_cmd) ->
       if eval_b_exp bool mem
-      then eval_cmd then_cmd mem  (* if bool is T, then branch *)
-      else eval_cmd else_cmd mem  (* if bool is F, else branch *)
-  | While (bool, cmd1) ->
-      let rec loop mem = (* loop function definition *)
+      then eval_cmd then_cmd mem  
+      else eval_cmd else_cmd mem  
+  | While (bool, cmd) ->
+      let rec loop mem = 
         if eval_b_exp bool mem 
-        then loop (eval_cmd cmd1 mem) (* if bool is T, then loop *)
-      else mem (* if bool is F, exit loop *)
+        then loop (eval_cmd cmd mem) 
+      else mem 
       in
-      loop mem (* first call of loop *)
+      loop mem 
 
 (* Evaluating a program *)
 let eval_program (prog : program) (i : int) : int =

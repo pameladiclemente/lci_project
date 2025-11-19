@@ -1,3 +1,11 @@
+/* Project fragment:
+- Extend the concrete syntax with parenthesis for forcing the evaluation order 
+(no need to change the abstract syntax)
+- Define lexers and parsers for MiniImp and MiniFun (or MiniTyFun, as you prefer) 
+by using ocamllex and menhir
+- Get rid of ambiguities: menhir should not produce warnings!
+*/
+
 %{
   open MiniImp
   open Printf
@@ -11,8 +19,7 @@
 %token AND OR NOT
 %token LPAREN RPAREN
 %token DEF MAIN WITH INPUT OUTPUT AS
-%token IF THEN ELSE WHILE DO SKIP
-%token ASSIGN SEQUENCE
+%token IF THEN ELSE WHILE DO SKIP ASSIGN SEQUENCE
 %token EOF
 
 %type <program> program
@@ -22,7 +29,6 @@
 
 %start program 
 
-/* lowest precedence */
 %left OR
 %left AND
 %right NOT
@@ -31,6 +37,8 @@
 %left SEQUENCE
 
 %%
+
+/* Added parentheses for evaluation order */
 
 program:
   | DEF; MAIN; WITH; INPUT; x = IDENT; OUTPUT; y = IDENT; AS; LPAREN; z = cmd; RPAREN; EOF   { Program (x, y, z) } 

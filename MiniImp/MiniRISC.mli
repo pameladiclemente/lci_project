@@ -1,44 +1,49 @@
-(* MiniRISC.mli *)
+(* Project Fragment:
+• Write a module for MiniRISC (syntax and simple statements,
+the semantics is not required)
+• Implement a translation from MiniImp CFG to MiniRISC CFG
+• Implement a translation from MiniRISC CFG to MiniRISC
+*)
 open MiniImp
 open CFG
-(* Identificatori per registri e etichette *)
+
+(* Identifiers for registers and labels *)
 type register = string 
 type label = string
 
-(* Operazioni binarie, binarie immediate e unarie *)
 
-(*(Binary Operations): Operazioni binarie su registri (Add, Sub, Mul, And, Less).*)
-(* aggiunti: div, mod, lessthanequal, greaterthan, graterthanequal, equal*)
+(* Binary, unary, and immediate operations employed by MiniRISC instructions... *)
+(* ... between virtual registers (e.g., add r1 r2 => r3). *)
 type brop = 
-  | Add               (* add *)
-  | Sub               (* sub *)
-  | Mul               (* mult *)
+  | Add               
+  | Sub               
+  | Mul               
   | Div               
   | Mod               
-  | And               (* and *)
+  | And              
   | Or
-  | LessThan          (* less *)
+  | LessThan         
   | LessThanEqual
   | GreaterThan
   | GreaterThanEqual
   | Equal
              
-(* (Binary Immediate Operations): Operazioni binarie con costante (AddInt, SubInt, MultInt, AndInt). *)
+(* ... between a register and an immediate constant (e.g., addI r1 10 => r3). *)
 type biop = 
-  | AddInt  (* addI *)
-  | SubInt  (* subI *)
-  | MultInt (* multI *)
-  | DivInt  (* divI, nuova operazione *)
-  | ModInt  (* modI, nuova operazione *)
-  | AndInt  (* andI *)  
-  | OrInt   (* orI, nuova operazione *)
+  | AddInt  
+  | SubInt  
+  | MultInt 
+  | DivInt  
+  | ModInt  
+  | AndInt  
+  | OrInt   
     
-(* (Unary Operations): Operazioni unarie (Not, Copy). *)
+(* ... between virtual registers (e.g., not r1 => r2). *)
 type urop = 
-  | Not     (* not *)
-  | Copy    (* copy *)                    
+  | Not     
+  | Copy                       
 
-(* Istruzioni di MiniRISC *)
+(* MiniRISC instructions employing defined typed of operations *)
 type instruction =
   | Nop                                             (* nop *)
   | Brop of brop * register * register * register   (* brop r r => r *)
@@ -50,45 +55,41 @@ type instruction =
   | Jump of label                                   (* jump l *)
   | CJump of register * label * label               (* cjump r l l *)
 
-(* labelled blocks (lists of instructions), Un blocco etichettato ha un'etichetta, una lista di istruzioni e una lista di successori. *)
+(* Node in MiniRISC CFG, contains:
+  - A label (unique)
+  - A list of instructions
+  - A list of successors *)
 type labelled_block = {
   label: label;
   statements: instruction list;
   edges: label list;
 }
 
-(* Grafo di controllo di flusso per MiniRISC, l grafo di controllo di flusso MiniRISC (risc_cfg) contiene:
-Una lista di blocchi (label * labelled_block).
-Il nodo di ingresso (entry).
-Il nodo di uscita (exit). *)
+(* The MiniRISC CFG, contains:
+  - A list of labelled blocks (previously defined)
+  - An entry node 
+  - A terminal node *)
 type risc_cfg = {
   blocks: (label * labelled_block) list;
   entry_node: label;
   terminal_node: label;
 }
 
-(* Funzioni di utilità per la generazione di etichette e registri *)
-val new_label : unit -> label
+(* Function to translate a MiniImp CFG node into a MiniRISC block *)
+val node_to_block : CFG.node -> labelled_block
 
-val new_register : unit -> register
+(* Translation of a MiniImp CFG into a MiniRISC CFG *)
+val riscfg_in_assembly : risc_cfg -> string
 
-(* Funzione per tradurre un'espressione aritmetica MiniImp in una lista di istruzioni MiniRISC *)
-val aexp_in_risc : MiniImp.a_exp -> register -> instruction list
-
-(* Funzione per tradurre un'espressione booleana MiniImp in una lista di istruzioni MiniRISC *)
-val bexp_in_risc : MiniImp.b_exp -> register -> instruction list
-
-(* Funzione per tradurre un nodo CFG MiniImp in un blocco MiniRISC *)
-val cfgnode_in_risc : CFG.node -> labelled_block
-
-(* Traduzione di un intero CFG di MiniImp a MiniRISC CFG *)
+(* Translation of a MiniImp CFG into a MiniRISC CFG *)
 val impcfg_in_riscfg : CFG.cfg -> risc_cfg
 
-(* TODO, INSTRUCTION TO STRING? *)
-val instruction_to_string : instruction -> string
+(* Target Code Generation
+Project Fragment: 
+- Implement a translation from MiniRISC CFG to MiniRISC for a target architecture: 
+the number of registers must be an integerparameter (must work for n >= 4) 
+*)
 
-(* Traduzione di MiniRISC CFG per un'architettura con `n` registri *)
+(* Function to translate a MiniRISC CFG to a target MiniRISC CFG with n>=4 registers *)
 val translate_to_target : risc_cfg -> int -> risc_cfg
 
-(* Ottimizzazione: fusione dei registri basata sulla Liveness Analysis *)
-val optimize_registers : risc_cfg -> string -> risc_cfg

@@ -1,4 +1,11 @@
-(* Defined lexer for MiniImp that supports parentheses for evaluation order. *)
+(* Project fragment:
+- Extend the concrete syntax with parenthesis for forcing the evaluation order 
+(no need to change the abstract syntax)
+- Define lexers and parsers for MiniImp and MiniFun (or MiniTyFun, as you prefer) 
+by using ocamllex and menhir
+- Get rid of ambiguities: menhir should not produce warnings!
+*)
+
 {
   open Parser
   exception LexingError of string
@@ -53,10 +60,3 @@ rule read = parse
   }
 | _            { raise (LexingError ("Unknown token: " ^ Lexing.lexeme lexbuf)) }
 
-(*
-Notes for Integration
-Parser Tokens: Ensure that the token names (e.g., PLUS, MINUS, LPAREN) match those declared in your parser's .mly file.
-Lexer Entry Point: Compile the lexer with ocamllex (e.g., ocamllex mylexer.mll) to generate mylexer.ml. The read function is the lexer entry point.
-Testing: Test the lexer by feeding it MiniImp programs and verifying the generated tokens using OCaml's REPL or debugging tools.
-This lexer is now fully functional for MiniImp and supports parentheses for evaluation order.
-*)

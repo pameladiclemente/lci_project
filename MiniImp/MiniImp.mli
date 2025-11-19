@@ -1,4 +1,5 @@
-(* Arithmetic expressions; division and modulo have been included *)
+(* Arithmetic expressions; 
+division, modulo and negative numbers have been included *)
 type a_exp =
   | Integer of int                   (* n *)
   | Variable of string               (* x *)
@@ -9,7 +10,8 @@ type a_exp =
   | Mod of a_exp * a_exp             (* a1 % a2 *)
   | NotInt of a_exp                  (* -a1 *)
 
-(* Boolean expressions; <=, >=, >, == have been included *)
+(* Boolean expressions; 
+<=, >=, >, ==, ! have been included *)
 type b_exp =
   | Boolean of bool                     (* 0 for false, 1 for true *)
   | And of b_exp * b_exp               (* b1 and b2 *)
@@ -33,8 +35,8 @@ type cmd =
 type program =
   | Program of string * string * cmd    (* def main with input x output y as c *)
 
-(* Memory *)
-(* Defining the environment ( = the memory) as a Map *)
+(* Memory:
+Defining such environment as a Map of strings to integers. *)
 module StringMap : Map.S with type key = string
 type memory = int StringMap.t
 
