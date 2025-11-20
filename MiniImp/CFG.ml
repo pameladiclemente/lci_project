@@ -2,6 +2,7 @@
   1. Define a module for control flow graphs
   2. Define a function that given a MiniImp program (AST) returns its CFG *)  
 
+  open MiniImp
   (* Module necessary for sets of strings in dataflow analysis *)
   module StringSet = Set.Make(String)
 
@@ -11,7 +12,7 @@
   (* CFG node *)
   type node = {
     id: node_id;                       (* Node ID *)
-    statements: MiniImp.cmd list;      (* Associated commands to node *)
+    statements: cmd list;      (* Associated commands to node *)
     edges: node_id list;               (* Successor(s) *)
   }
 
@@ -34,7 +35,7 @@
     { id = new_node_id (); statements = statements; edges = edges } 
 
   (* CFG construction for a command *)
-  let rec cmd_node (cmd : MiniImp.cmd) (exit_node : node_id) (cfg : cfg) : node_id * cfg = 
+  let rec cmd_node (cmd : cmd) (exit_node : node_id) (cfg : cfg) : node_id * cfg = 
     match cmd with
     (* Skip and Assign are straightforward: create a node pointing to exit_node *)
     | Skip -> 
@@ -62,14 +63,28 @@
         (cond_node.id, { cfg_after_body with nodes = (cond_node.id, cond_node) :: (loop_node, loop_node_entry) :: cfg_after_body.nodes })
 
   (* CFG construction for a complete program *)
-  let build_cfg (program : MiniImp.program) : cfg =
-    match program with
-    | MiniImp.Program (_, _, body_cmd) -> 
-        let exit_node = new_node_id () in
-        let entry_node, cfg = cmd_node body_cmd exit_node { nodes = []; entry_node = 0; terminal_node = 0 } in
-        { cfg with entry_node = entry_node; terminal_node = exit_node }
-
-
+  let build_cfg (program : program) : cfg =
+  match program with
+  | Program (_, _, body_cmd) -> 
+      (* Reset counter *)
+      node_counter := 0;
+      
+      (* Create Terminal Node ID and Object *)
+      let terminal_id = new_node_id () in
+      let terminal_node_obj = { id = terminal_id; statements = [Skip]; edges = [] } in
+      
+      (* Initial CFG with just the terminal node *)
+      let initial_cfg = { 
+        nodes = [(terminal_id, terminal_node_obj)]; 
+        entry_node = -1; (* Placeholder *)
+        terminal_node = terminal_id 
+      } in
+      
+      (* Build the rest of the graph *)
+      let entry_id, complete_cfg = cmd_node body_cmd terminal_id initial_cfg in
+      
+      (* Return complete CFG with correct entry point *)
+      { complete_cfg with entry_node = entry_id }
 
 
   (* Dataflow Analysis
@@ -83,7 +98,7 @@
 
   (* Phase 1: helper functions... 
     ... to extract variables used by a_exp or b_exp *)
-  let rec vars_in_a_exp (a_exp : MiniImp.a_exp) : StringSet.t =
+  let rec vars_in_a_exp (a_exp : a_exp) : StringSet.t =
     match a_exp with
     (* Base cases: integer constants and variables have straightforward variable sets *)
     | Integer n -> StringSet.empty
@@ -96,7 +111,7 @@
     | Mod (a1, a2) -> StringSet.union (vars_in_a_exp a1) (vars_in_a_exp a2)
     | NotInt n -> vars_in_a_exp n
 
-  let rec vars_in_b_exp (b_exp : MiniImp.b_exp) : StringSet.t =
+  let rec vars_in_b_exp (b_exp : b_exp) : StringSet.t =
     match b_exp with
     (* Base cases: boolean constants have no variables *)
     | Boolean b -> StringSet.empty
@@ -111,7 +126,7 @@
     | Equal (a1, a2) -> StringSet.union (vars_in_a_exp a1) (vars_in_a_exp a2)
 
   (* ... to extract variables used and defined in cmd *)
-  let vars_in_cmd (cmd : MiniImp.cmd) : (StringSet.t * StringSet.t) =
+  let vars_in_cmd (cmd : cmd) : (StringSet.t * StringSet.t) =
     match cmd with
     (* Assign: use variables in a_exp, define variable v *)
     | Assign (v, a_exp) -> (vars_in_a_exp a_exp, StringSet.singleton v)

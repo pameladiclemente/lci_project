@@ -11,7 +11,6 @@ open CFG
 type register = string 
 type label = string
 
-
 (* Binary, unary, and immediate operations employed by MiniRISC instructions... *)
 (* ... between virtual registers (e.g., add r1 r2 => r3). *)
 type brop = 

@@ -111,4 +111,4 @@ let main () =
   let result = eval_program parsed_program input_value in
   Printf.printf "Output: %d\n" result
 
-let () = main ()
+(*let () = main ()*)

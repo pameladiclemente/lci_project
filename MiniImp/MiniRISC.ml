@@ -7,10 +7,6 @@ the semantics is not required)
 
 open MiniImp
 open CFG
-open LivenessAnalysis
-
-(* The string map module from LivenessAnalysis for register mapping *)
-module StringSet = LivenessAnalysis.StringSet 
 
 (* Identifiers for registers and labels *)
 type register = string
@@ -169,21 +165,21 @@ let node_to_block (node : node) : labelled_block =
   let block_instructions =
     List.flatten (List.map (function
     (* Skip: no operation needed, translate to Nop *)
-      | MiniImp.Skip -> [Nop]
+      | Skip -> [Nop]
     (* Assign: evaluate the arithmetic expression into a new register,
       then store that register's value into the variable's memory location *)
-      | MiniImp.Assign (x, a_exp) ->
+      | Assign (x, a_exp) ->
           let register = new_register () in
           aexp_in_risc a_exp register @ [Store (register, x)]
     (* If and While: evaluate the boolean condition into a new register,
       then perform a conditional jump (CJump) based on that register's value 
       to the appropriate successor labels *)
-      | MiniImp.If (cond, _, _) ->
+      | If (cond, _, _) ->
           let register = new_register () in
           bexp_in_risc cond register @
           (* CJump r Ltrue Lfalse *)
           [CJump (register, "L" ^ string_of_int (List.nth node.edges 0), "L" ^ string_of_int (List.nth node.edges 1))]
-      | MiniImp.While (cond, _) ->
+      | While (cond, _) ->
           let register = new_register () in
           bexp_in_risc cond register @
           [CJump (register, "L" ^ string_of_int (List.nth node.edges 0), "L" ^ string_of_int (List.nth node.edges 1))]

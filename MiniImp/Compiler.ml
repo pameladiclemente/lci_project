@@ -95,7 +95,7 @@ let compile_miniimp_to_minirisc (n : int) (input_file : string) (output_file : s
   Printf.printf "Compilation successful! MiniRISC code written to: %s\n" output_file
 
 (* Entry point *)
-let () =
+let main () =
   (* Read command line arguments *)
   let argv = Sys.argv in
   let argc = Array.length argv in
