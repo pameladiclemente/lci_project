@@ -1,4 +1,5 @@
 (* MiniTyFun syntax *)
+
 (* Types *)
 type allowed_types =
   | IntType                         
@@ -46,8 +47,8 @@ type term =
   | LetFun of string * string * allowed_types * allowed_types * term * term   (* let rec f (x : t1) : t2 = t3 in t4 *)
 
 
-(* Memory *)
-(* Defining the environment ( = the memory) as a Map *)
+(* Memory:
+  Defining such environment as a Map mapping variables to their types, not values *)
 module StringMap : Map.S with type key = string
 type memory = allowed_types StringMap.t
 

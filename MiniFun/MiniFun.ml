@@ -1,9 +1,9 @@
-(* Project fragment 2: Create a module for MiniFun that exposes
-the type of the abstract syntax tree and an evaluation function. The
-evaluation function can both fail and diverge, in agreement with the
-semantics of MiniFun. *)
+(* Project fragment: 
+Create a module for MiniFun that exposes the type of the abstract syntax tree and an evaluation function. 
+The evaluation function can both fail and diverge, in agreement with the semantics of MiniFun. *)
 
-(* MiniFun syntax; not, division, modulo, <=, >=, >, = have been included *)
+(* MiniFun syntax; 
+not, division, modulo, <=, >=, >, =, ! have been included *)
 type term =
   | Integer of int                              (* n *)
   | Boolean of bool                             (* v *)
@@ -28,7 +28,8 @@ type term =
   | Let of string * term * term                 (* let x = t in t *)
   | LetFun of string * string * term * term     (* letfun f x = t in t *)
 
-  (* Defining the environment ( = the memory) as a Map *)
+  (* Memory:
+  Defining such environment as a Map of string to allowed values in memory. *)
   module StringMap = Map.Make(String)
   type memoryAllowedValues =
     | MemInteger of int                               (* int *)        
@@ -53,6 +54,9 @@ type term =
     | Boolean bool -> MemBoolean bool
     | Variable var -> lookup var mem
     | Function (f, body) -> Closure (f, body, mem)
+    (* When applying a function, we evaluate the function term to get a closure, 
+       then evaluate the argument term to get its value, 
+       and finally evaluate the body of the function in an updated memory where the parameter is bound to the argument value. *)
     | FunctionApplication (t1, t2) ->
       let closure = eval_term t1 mem in   
       let arg_val = eval_term t2 mem in
@@ -157,12 +161,16 @@ type term =
          | MemBoolean true -> eval_term then_term mem
          | MemBoolean false -> eval_term else_term mem
          | _ -> failwith "Type error: 'if' condition must be a boolean")
-    | Let (f, t1, t2) -> (* 2 consecutive assignment to same variable x *)
+    (* When encountering a let-binding, we evaluate the bound term (t1) to get its value,
+    then extend the memory with this new binding before evaluating the body term (t2). *)
+    | Let (f, t1, t2) -> 
         let value = eval_term t1 mem in
         let new_mem = update f value mem in
         eval_term t2 new_mem
+    (* When encountering a letfun-binding, we create a recursive closure for the function,
+    extend the memory with this new function binding, and then evaluate the body term (t2) *)
     | LetFun (f, var, body, t2) ->  
-        let rec_closure = RecClosure (f, var, body, mem) in  (* Wrappiamo x in Variable *)
+        let rec_closure = RecClosure (f, var, body, mem) in  
         let new_mem = update f rec_closure mem in
         eval_term t2 new_mem
 

@@ -1,4 +1,5 @@
-(* MiniFun syntax *)
+(* MiniFun syntax; 
+not, division, modulo, <=, >=, >, =, ! have been included *)
 type term =
   | Integer of int                          (* n *)
   | Boolean of bool                         (* v *)
@@ -13,7 +14,7 @@ type term =
   | And of term * term                      (* t1 && t2 *)
   | Or of term * term                       (* t1 || t2 *)
   | Not of term                             (* not t *)
-  | NotInt of term                              (* -t *)
+  | NotInt of term                          (* -t *)
   | LessThan of term * term                 (* t1 < t2 *)
   | LessThanEqual of term * term            (* t1 <= t2 *)
   | GreaterThan of term * term              (* t1 > t2 *)
@@ -23,16 +24,14 @@ type term =
   | Let of string * term * term             (* let x = t in t *)
   | LetFun of string * string * term * term (* letfun f x = t in t *)
 
-
-(* Memory *)
-(* Defining the environment ( = the memory) as a Map *)
+(* Memory:
+Defining such environment as a Map of string to allowed values in memory. *)
 module StringMap : Map.S with type key = string
 type memoryAllowedValues =
   | MemInteger of int                             (* int *)
   | MemBoolean of bool                            (* bool *)
   | Closure of string * term * memory             (* fun x => t || let y = fun x => t in ⋅ *)
   | RecClosure of string * string * term * memory (* letfun f x = t in ⋅ *)
-
 and memory = memoryAllowedValues StringMap.t
 
 (* Lookup function *)

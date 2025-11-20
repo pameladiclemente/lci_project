@@ -1,11 +1,16 @@
+/* Project fragment:
+- Extend the concrete syntax with parenthesis for forcing the evaluation order 
+(no need to change the abstract syntax)
+- Define lexers and parsers for MiniImp and MiniFun (or MiniTyFun, as you prefer) 
+by using ocamllex and menhir
+- Get rid of ambiguities: menhir should not produce warnings!
+*/
+
 %{
   open MiniFun
   open Printf
 %}
-/*
-come gestire la freccetta? => 
 
-*/
 %token <int> INT
 %token <bool> BOOL
 %token <string> IDENT
@@ -25,7 +30,6 @@ come gestire la freccetta? =>
 
 %start program
 
-/* lowest precedence*/
 %left OR
 %left AND
 %left LT LE GT GE EQ
@@ -33,6 +37,8 @@ come gestire la freccetta? =>
 %right NOT MINUS
 
 %%
+
+/* Added parentheses for evaluation order */
 
 program:
   | t = term; EOF { t }
