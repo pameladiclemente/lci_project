@@ -24,9 +24,9 @@ type op =
 
 (* Terms with type annotations *)
 type term =
-  | Integer of int                                                                (* n *)
-  | Boolean of bool                                                              (* v *)
-  | Variable of string                                                             (* x *)
+  | Integer of int                                                            (* n *)
+  | Boolean of bool                                                           (* v *)
+  | Variable of string                                                        (* x *)
   | Function of string * allowed_types * term                                 (* fun x : t -> t *)
   | FunctionApplication of term * term                                        (* (* t1 && t2 *) t1 t2 *)
   | Add of term * term                                                        (* t1 + t2 *)

@@ -2,9 +2,10 @@ open MiniImp
 open CFG
 open MiniRISC
 open Parser
-open LivenessAnalysis
+open LivenessAnalysis 
 open Lexing
- 
+open Lexer 
+
 (* Function to format position for error messages.
    It converts a Lexing position into a readable string "line X, column Y". *)
 let string_of_pos pos =
@@ -16,16 +17,16 @@ let string_of_pos pos =
   It handles opening the file, running the lexer and parser, and catching errors. *)
 let parse_file filename =
   let input_channel = open_in filename in
-  let lexbuf = Lexing.from_channel input_channel in
+  let lexbuf = from_channel input_channel in
   try
-    let program = Parser.program Lexer.read lexbuf in
+    let program = program read lexbuf in
     close_in input_channel;
     program
   with
-  | Lexer.LexingError msg ->
+  | LexingError msg ->
       Printf.eprintf "Lexical Error %s: %s\n" (lexeme_start_p lexbuf |> string_of_pos) msg;
       exit 1
-  | Parser.Error ->
+  | Error ->
       Printf.eprintf "Syntax Error %s\n" (lexeme_start_p lexbuf |> string_of_pos);
       exit 1
   | e ->
@@ -104,7 +105,6 @@ let main () =
      Usage: ./compiler <num_registers> <input_file> <output_file> <check_undef_bool> <optimize_bool> *)
   if argc <> 6 then (
     Printf.eprintf "Usage: %s <num_registers> <input_file> <output_file> <check_undef_bool> <optimize_bool>\n" argv.(0);
-    Printf.eprintf "Example: %s 8 prog.miniimp out.asm true false\n" argv.(0);
     exit 1
   );
 

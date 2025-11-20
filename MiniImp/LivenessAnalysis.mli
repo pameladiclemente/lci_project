@@ -1,8 +1,6 @@
 (* DataFlow Analysis
 Project Fragment:
-Write a module containing a function for computing liveness
-analysis on MiniRISC CFGs
-*)
+Write a module containing a function for computing liveness analysis on MiniRISC CFGs *)
 
 open MiniRISC
 
@@ -10,8 +8,10 @@ open MiniRISC
 module StringSet : Set.S with type elt = string
 
 (* Liveness Analysis computation, LFP *)
-val liveness : risc_cfg -> string -> (MiniRISC.label, Set.Make(String).t * Set.Make(String).t) Hashtbl.t
-
+val liveness :
+  risc_cfg ->
+  string ->
+  (MiniRISC.label, Set.Make(String).t * Set.Make(String).t) Hashtbl.t
 
 (* Target Code Generation
 Project Fragment:

@@ -1,2 +1,2 @@
-(* Punto di ingresso per l'interprete *)
+(* Entry point for interpreter *)
 let () = Interpreter.main ()

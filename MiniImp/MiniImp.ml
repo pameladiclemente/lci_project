@@ -1,9 +1,7 @@
 (* Project fragment: 
-Create a module for MiniImp that exposes the type of the AST and an evaluation function. *)
+Create a module for MiniImp that exposes the type of the AST and an evaluation function. 
 
-(* 
 MiniImp syntax
-
 The following types express:
 - Arithmetic expressions
 - Boolean expressions
@@ -13,40 +11,41 @@ The following types express:
 
 (* Division, modulo and negative numbers have been included *)
 type a_exp =
-  | Integer of int                   (* n *)
-  | Variable of string               (* x *)
-  | Add of a_exp * a_exp             (* a1 + a2 *)
-  | Sub of a_exp * a_exp             (* a1 - a2 *)
-  | Mul of a_exp * a_exp             (* a1 * a2 *)
-  | Div of a_exp * a_exp             (* a1 / a2 *)
-  | Mod of a_exp * a_exp             (* a1 % a2 *)
-  | NotInt of a_exp                  (* -a1 *)
+  | Integer of int (* n *)
+  | Variable of string (* x *)
+  | Add of a_exp * a_exp (* a1 + a2 *)
+  | Sub of a_exp * a_exp (* a1 - a2 *)
+  | Mul of a_exp * a_exp (* a1 * a2 *)
+  | Div of a_exp * a_exp (* a1 / a2 *)
+  | Mod of a_exp * a_exp (* a1 % a2 *)
+  | NotInt of a_exp (* -a1 *)
 
 (* <=, >=, >=, ==, ! have been included *)
 type b_exp =
-  | Boolean of bool                    (* v *)
-  | And of b_exp * b_exp               (* b1 and b2 *)
-  | Or of b_exp * b_exp                (* b1 or b2 *)
-  | NotBool of b_exp                   (* not b *)
-  | LessThan of a_exp * a_exp          (* a1 < a2 *)
-  | LessThanEqual of a_exp * a_exp     (* a1 <= a2 *)
-  | GreaterThan of a_exp * a_exp       (* a1 > a2 *)
-  | GreaterThanEqual of a_exp * a_exp  (* a1 >= a2 *)
-  | Equal of a_exp * a_exp             (* a1 == a2 *)
+  | Boolean of bool (* v *)
+  | And of b_exp * b_exp (* b1 and b2 *)
+  | Or of b_exp * b_exp (* b1 or b2 *)
+  | NotBool of b_exp (* not b *)
+  | LessThan of a_exp * a_exp (* a1 < a2 *)
+  | LessThanEqual of a_exp * a_exp (* a1 <= a2 *)
+  | GreaterThan of a_exp * a_exp (* a1 > a2 *)
+  | GreaterThanEqual of a_exp * a_exp (* a1 >= a2 *)
+  | Equal of a_exp * a_exp (* a1 == a2 *)
 
 type cmd =
-  | Skip                            (* skip *)
-  | Assign of string * a_exp        (* x := a *)
-  | Seq of cmd * cmd                (* c1; c2 *)
-  | If of b_exp * cmd * cmd         (* if b then c1 else c2 *)
-  | While of b_exp * cmd            (* while b do c *)
+  | Skip (* skip *)
+  | Assign of string * a_exp (* x := a *)
+  | Seq of cmd * cmd (* c1; c2 *)
+  | If of b_exp * cmd * cmd (* if b then c1 else c2 *)
+  | While of b_exp * cmd (* while b do c *)
 
-type program = 
-  | Program of string * string * cmd  (* def main with input x output y as c *)
+type program =
+  | Program of string * string * cmd (* def main with input x output y as c *)
 
 (* Memory:
 Defining such environment as a Map of strings to integers. *)
-module StringMap = Map.Make(String)
+module StringMap = Map.Make (String)
+
 type memory = int StringMap.t
 
 (* Lookup function *)
@@ -64,32 +63,33 @@ let rec eval_a_exp (exp : a_exp) (mem : memory) : int =
   | Integer n -> n
   | Variable var -> (
       try StringMap.find var mem
-      with Not_found -> failwith ("Variable not found: " ^ var)
-    )
+      with Not_found -> failwith ("Variable not found: " ^ var))
   | Add (exp1, exp2) -> eval_a_exp exp1 mem + eval_a_exp exp2 mem
   | Sub (exp1, exp2) -> eval_a_exp exp1 mem - eval_a_exp exp2 mem
   | Mul (exp1, exp2) -> eval_a_exp exp1 mem * eval_a_exp exp2 mem
   | Div (exp1, exp2) ->
       let value = eval_a_exp exp2 mem in
-      if value = 0 then failwith "Division by zero" else eval_a_exp exp1 mem / value
+      if value = 0 then failwith "Division by zero"
+      else eval_a_exp exp1 mem / value
   | Mod (exp1, exp2) ->
       let value = eval_a_exp exp2 mem in
-      if value = 0 then failwith "Modulo by zero" else eval_a_exp exp1 mem mod value
-  | NotInt exp1 -> - (eval_a_exp exp1 mem)  
+      if value = 0 then failwith "Modulo by zero"
+      else eval_a_exp exp1 mem mod value
+  | NotInt exp1 -> -eval_a_exp exp1 mem
 
-  (* Evaluating a boolean expression *)
-  let rec eval_b_exp (bool : b_exp) (mem : memory) : bool =
+(* Evaluating a boolean expression *)
+let rec eval_b_exp (bool : b_exp) (mem : memory) : bool =
   match bool with
-  | Boolean bool -> bool 
-  | And (bool1, bool2) -> (eval_b_exp bool1 mem) && (eval_b_exp bool2 mem)
-  | Or (bool1, bool2) -> (eval_b_exp bool1 mem ) || (eval_b_exp bool2 mem) 
+  | Boolean bool -> bool
+  | And (bool1, bool2) -> eval_b_exp bool1 mem && eval_b_exp bool2 mem
+  | Or (bool1, bool2) -> eval_b_exp bool1 mem || eval_b_exp bool2 mem
   | NotBool bool1 -> not (eval_b_exp bool1 mem)
-  | LessThan (exp1, exp2) -> (eval_a_exp exp1 mem) < (eval_a_exp exp2 mem) 
-  | LessThanEqual (exp1, exp2) -> (eval_a_exp exp1 mem) <= (eval_a_exp exp2 mem) 
-  | GreaterThan (exp1, exp2) -> (eval_a_exp exp1 mem) > (eval_a_exp exp2 mem) 
-  | GreaterThanEqual (exp1, exp2) -> (eval_a_exp exp1 mem) >= (eval_a_exp exp2 mem) 
-  | Equal (exp1, exp2) -> (eval_a_exp exp1 mem) = (eval_a_exp exp2 mem) 
-  
+  | LessThan (exp1, exp2) -> eval_a_exp exp1 mem < eval_a_exp exp2 mem
+  | LessThanEqual (exp1, exp2) -> eval_a_exp exp1 mem <= eval_a_exp exp2 mem
+  | GreaterThan (exp1, exp2) -> eval_a_exp exp1 mem > eval_a_exp exp2 mem
+  | GreaterThanEqual (exp1, exp2) -> eval_a_exp exp1 mem >= eval_a_exp exp2 mem
+  | Equal (exp1, exp2) -> eval_a_exp exp1 mem = eval_a_exp exp2 mem
+
 (* Evaluating a command *)
 let rec eval_cmd (cmd : cmd) (mem : memory) : memory =
   match cmd with
@@ -101,23 +101,19 @@ let rec eval_cmd (cmd : cmd) (mem : memory) : memory =
       let new_mem = eval_cmd cmd1 mem in
       eval_cmd cmd2 new_mem
   | If (bool, then_cmd, else_cmd) ->
-      if eval_b_exp bool mem
-      then eval_cmd then_cmd mem  
-      else eval_cmd else_cmd mem  
+      if eval_b_exp bool mem then eval_cmd then_cmd mem
+      else eval_cmd else_cmd mem
   | While (bool, cmd) ->
-      let rec loop mem = 
-        if eval_b_exp bool mem 
-        then loop (eval_cmd cmd mem) 
-      else mem 
+      let rec loop mem =
+        if eval_b_exp bool mem then loop (eval_cmd cmd mem) else mem
       in
-      loop mem 
+      loop mem
 
 (* Evaluating a program *)
 let eval_program (prog : program) (i : int) : int =
   match prog with
-  | Program (input, output, body) ->
+  | Program (input, output, body) -> (
       let mem = StringMap.add input i StringMap.empty in
       let new_mem = eval_cmd body mem in
       try StringMap.find output new_mem
-      with Not_found -> failwith ("Output variable not found: " ^ output)
-
+      with Not_found -> failwith ("Output variable not found: " ^ output))

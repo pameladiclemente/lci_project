@@ -9,44 +9,47 @@ integer in standard output
 *)
 
 open MiniImp
+open Lexing
 open Lexer
+open Parser
+
 exception ParsingError of string
 
 (* Transform parser tokens into readable strings *)
 let string_of_token = function
-  | Parser.INT n -> Printf.sprintf "INT(%d)" n
-  | Parser.BOOL b -> Printf.sprintf "BOOL(%b)" b
-  | Parser.IDENT s -> Printf.sprintf "IDENT(%s)" s
-  | Parser.PLUS -> "PLUS"
-  | Parser.MINUS -> "MINUS"
-  | Parser.TIMES -> "TIMES"
-  | Parser.DIVIDE -> "DIVIDE"
-  | Parser.MODULO -> "MODULO"
-  | Parser.LT -> "LT"
-  | Parser.LE -> "LE"
-  | Parser.GT -> "GT"
-  | Parser.GE -> "GE"
-  | Parser.EQ -> "EQ"
-  | Parser.AND -> "AND"
-  | Parser.OR -> "OR"
-  | Parser.NOT -> "NOT"
-  | Parser.LPAREN -> "LPAREN"
-  | Parser.RPAREN -> "RPAREN"
-  | Parser.DEF -> "DEF"
-  | Parser.MAIN -> "MAIN"
-  | Parser.WITH -> "WITH"
-  | Parser.INPUT -> "INPUT"
-  | Parser.OUTPUT -> "OUTPUT"
-  | Parser.AS -> "AS"
-  | Parser.SKIP -> "SKIP"
-  | Parser.IF -> "IF"
-  | Parser.THEN -> "THEN"
-  | Parser.ELSE -> "ELSE"
-  | Parser.WHILE -> "WHILE"
-  | Parser.DO -> "DO"
-  | Parser.ASSIGN -> "ASSIGN"
-  | Parser.SEQUENCE -> "SEQUENCE"
-  | Parser.EOF -> "EOF"
+  | INT n -> Printf.sprintf "INT(%d)" n
+  | BOOL b -> Printf.sprintf "BOOL(%b)" b
+  | IDENT s -> Printf.sprintf "IDENT(%s)" s
+  | PLUS -> "PLUS"
+  | MINUS -> "MINUS"
+  | TIMES -> "TIMES"
+  | DIVIDE -> "DIVIDE"
+  | MODULO -> "MODULO"
+  | LT -> "LT"
+  | LE -> "LE"
+  | GT -> "GT"
+  | GE -> "GE"
+  | EQ -> "EQ"
+  | AND -> "AND"
+  | OR -> "OR"
+  | NOT -> "NOT"
+  | LPAREN -> "LPAREN"
+  | RPAREN -> "RPAREN"
+  | DEF -> "DEF"
+  | MAIN -> "MAIN"
+  | WITH -> "WITH"
+  | INPUT -> "INPUT"
+  | OUTPUT -> "OUTPUT"
+  | AS -> "AS"
+  | SKIP -> "SKIP"
+  | IF -> "IF"
+  | THEN -> "THEN"
+  | ELSE -> "ELSE"
+  | WHILE -> "WHILE"
+  | DO -> "DO"
+  | ASSIGN -> "ASSIGN"
+  | SEQUENCE -> "SEQUENCE"
+  | EOF -> "EOF"
 
 (* Read input file and return MiniImp program as string *)
 let read_file filename =
@@ -58,14 +61,14 @@ let read_file filename =
 
 (* Parse a MiniImp program *)
 let parse_miniimp input =
-  let lexbuf = Lexing.from_string input in
+  let lexbuf = from_string input in
   let read_tokens = ref [] in  
   
   (* Store parsed tokens *)
   let rec lex_and_store () =
-    let token = Lexer.read lexbuf in
+    let token = read lexbuf in
     read_tokens := !read_tokens @ [token]; 
-    if token = Parser.EOF then token else lex_and_store ()
+    if token = EOF then token else lex_and_store ()
   in
 
   (* Print read tokens before parsing *)
@@ -76,17 +79,17 @@ let parse_miniimp input =
    with _ -> Printf.printf "(Error reading tokens)\n");
 
   (* Perform parsing; if error occurs, print tokens read before error *)
-  let lexbuf = Lexing.from_string input in
+  let lexbuf = from_string input in
   try
-    Parser.program Lexer.read lexbuf
+    program read lexbuf
   with
-  | Lexer.LexingError msg ->
+  | LexingError msg ->
       let pos = lexbuf.lex_curr_p in
       failwith (Printf.sprintf "Lexer error: %s at line %d, column %d"
                   msg pos.pos_lnum (pos.pos_cnum - pos.pos_bol + 1))
-  | Parser.Error ->
+  | Error ->
       let pos = lexbuf.lex_curr_p in
-      let token = Lexing.lexeme lexbuf in
+      let token = lexeme lexbuf in
       Printf.printf "Token until errors: ";
       List.iter (fun t -> Printf.printf "%s " (string_of_token t)) !read_tokens;
       Printf.printf "\n";
@@ -111,4 +114,3 @@ let main () =
   let result = eval_program parsed_program input_value in
   Printf.printf "Output: %d\n" result
 
-(*let () = main ()*)

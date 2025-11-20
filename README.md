@@ -1,7 +1,17 @@
 # LCI (Languages, Compilers and Interpreters), year 2024/2025
 
 # MiniImp Test
-First, generate the lexer and parser, and compile the core modules:
+First, enter the appropriate folder:
+```bash
+cd MiniImp
+```
+
+If in ```MiniFun``` folder, perform:
+```bash
+cd ../MiniImp
+```
+
+Then, generate generate the lexer and parser, and compile the core modules:
 ```bash
 ocamllex Lexer.mll
 ocamlc -c MiniImp.mli MiniImp.ml
@@ -35,7 +45,17 @@ rm *.cmo *.cmi Parser.ml Lexer.ml Parser.mli miniimp_int miniimp_comp
 ```
 
 # MiniFun Test
-Similarly, for the functional language interpreter, generate the lexer and parser and compile the core modules:
+Similarly, for the functional language interpreter, first enter the appropriate folder:
+```bash
+cd MiniFun
+```
+
+If in ```MiniImp``` folder, perform:
+```bash
+cd ../MiniFun
+```
+
+Then, generate the lexer and parser and compile the core modules:
 ```bash
 ocamllex Lexer.mll
 ocamlc -c MiniFun.mli MiniFun.ml
