@@ -2,9 +2,9 @@ open MiniImp
 open CFG
 open MiniRISC
 open Parser
-open LivenessAnalysis 
+open LivenessAnalysis
 open Lexing
-open Lexer 
+open Lexer
 
 (* Function to format position for error messages.
    It converts a Lexing position into a readable string "line X, column Y". *)
@@ -24,25 +24,27 @@ let parse_file filename =
     program
   with
   | LexingError msg ->
-      Printf.eprintf "Lexical Error %s: %s\n" (lexeme_start_p lexbuf |> string_of_pos) msg;
+      Printf.eprintf "Lexical Error %s: %s\n"
+        (lexeme_start_p lexbuf |> string_of_pos)
+        msg;
       exit 1
   | Error ->
       Printf.eprintf "Syntax Error %s\n" (lexeme_start_p lexbuf |> string_of_pos);
       exit 1
   | e ->
       close_in_noerr input_channel;
-      Printf.eprintf "Unexpected error during parsing: %s\n" (Printexc.to_string e);
+      Printf.eprintf "Unexpected error during parsing: %s\n"
+        (Printexc.to_string e);
       exit 1
 
 (* Function containing the entire compilation pipeline, from MiniImp source to MiniRISC assembly *)
-let compile_miniimp_to_minirisc (n : int) (input_file : string) (output_file : string) 
-                                (def_var_flag : bool) (optimize_flag : bool) =
-  
+let compile_miniimp_to_minirisc (n : int) (input_file : string)
+    (output_file : string) (def_var_flag : bool) (optimize_flag : bool) =
   Printf.printf "Starting compilation of '%s'...\n" input_file;
 
   (* 1. Parse the input file into an AST *)
   let program = parse_file input_file in
-  
+
   (* Extract input/output variable names from the AST (for later use in analysis) *)
   let input_var = match program with Program (input, _, _) -> input in
   let output_var = match program with Program (_, output, _) -> output in
@@ -55,12 +57,10 @@ let compile_miniimp_to_minirisc (n : int) (input_file : string) (output_file : s
   if def_var_flag then (
     Printf.printf "Running static analysis (defined variables)...\n";
     if not (defined_variables cfg input_var) then (
-      Printf.eprintf "Error: The program uses variables that may not be initialized\n";
-      exit 1
-    ) else (
-      Printf.printf "Variable initialization check passed.\n"
-    )
-  );
+      Printf.eprintf
+        "Error: The program uses variables that may not be initialized\n";
+      exit 1)
+    else Printf.printf "Variable initialization check passed.\n");
 
   (* 4. Translate MiniImp CFG to MiniRISC CFG assuming an infinite number of virtual registers. *)
   let risc_cfg = impcfg_in_riscfg cfg in
@@ -70,30 +70,34 @@ let compile_miniimp_to_minirisc (n : int) (input_file : string) (output_file : s
   let final_cfg =
     if optimize_flag then (
       (* Phase 5A: Register Optimization via Graph Coloring. *)
-      Printf.printf "Optimization enabled. Running Liveness Analysis and Register Allocation...\n";
-      let optimized_cfg = optimize_registers risc_cfg output_var in
-      
+      Printf.printf
+        "Optimization enabled. Running Liveness Analysis and Register \
+         Allocation...\n";
+      let optimized_cfg = optimize_registers risc_cfg output_var n in
+
       (* Phase 5B: Target Code Generation. *)
       Printf.printf "Generating target code for %d registers...\n" n;
-      translate_to_target optimized_cfg n
-      
-    ) else (
+      translate_to_target optimized_cfg n)
+    else (
       (* Optimization disabled: 
       Skip Graph Coloring but must still perform Target Code Generation *)
-      Printf.printf "Optimization disabled. Generating target code directly for %d registers...\n" n;
-      translate_to_target risc_cfg n
-    )
+      Printf.printf
+        "Optimization disabled. Generating target code directly for %d \
+         registers...\n"
+        n;
+      translate_to_target risc_cfg n)
   in
 
   (* 6. Convert the final RISC CFG into a string representation of the assembly code. *)
   let risc_code = riscfg_in_assembly final_cfg in
-  
+
   (* Write the generated assembly to the specified output file *)
   let out_channel = open_out output_file in
   output_string out_channel risc_code;
   close_out out_channel;
 
-  Printf.printf "Compilation successful! MiniRISC code written to: %s\n" output_file
+  Printf.printf "Compilation successful! MiniRISC code written to: %s\n"
+    output_file
 
 (* Entry point *)
 let main () =
@@ -104,37 +108,39 @@ let main () =
   (* Check if we have the exact required arguments (5 user args + program name = 6).
      Usage: ./compiler <num_registers> <input_file> <output_file> <check_undef_bool> <optimize_bool> *)
   if argc <> 6 then (
-    Printf.eprintf "Usage: %s <num_registers> <input_file> <output_file> <check_undef_bool> <optimize_bool>\n" argv.(0);
-    exit 1
-  );
+    Printf.eprintf
+      "Usage: %s <num_registers> <input_file> <output_file> <check_undef_bool> \
+       <optimize_bool>\n"
+      argv.(0);
+    exit 1);
 
   (* Parse mandatory argument: Number of Registers *)
-  let registers_number = 
-    try int_of_string argv.(1) 
-    with Failure _ -> 
-      Printf.eprintf "Error: Number of registers must be an integer.\n"; 
-      exit 1 
+  let registers_number =
+    try int_of_string argv.(1)
+    with Failure _ ->
+      Printf.eprintf "Error: Number of registers must be an integer.\n";
+      exit 1
   in
-  
+
   (* Ensure minimum register count requirement (this is a double check) *)
   if registers_number < 4 then (
-    Printf.eprintf "Error: Target architecture must have at least 4 registers.\n";
-    exit 1
-  );
+    Printf.eprintf
+      "Error: Target architecture must have at least 4 registers.\n";
+    exit 1);
 
   (* Parse file paths *)
   let input_file = argv.(2) in
   let output_file = argv.(3) in
 
   (* Parse boolean flags directly *)
-  let def_var_flag = 
+  let def_var_flag =
     try bool_of_string argv.(4)
     with Invalid_argument _ ->
       Printf.eprintf "Error: check_undef_bool must be 'true' or 'false'.\n";
       exit 1
   in
 
-  let optimize_flag = 
+  let optimize_flag =
     try bool_of_string argv.(5)
     with Invalid_argument _ ->
       Printf.eprintf "Error: optimize_bool must be 'true' or 'false'.\n";
@@ -143,11 +149,12 @@ let main () =
 
   (* Execute the compilation pipeline *)
   try
-    compile_miniimp_to_minirisc registers_number input_file output_file def_var_flag optimize_flag
+    compile_miniimp_to_minirisc registers_number input_file output_file
+      def_var_flag optimize_flag
   with
-  | Failure msg -> 
+  | Failure msg ->
       Printf.eprintf "Fatal Error: %s\n" msg;
       exit 1
-  | e -> 
+  | e ->
       Printf.eprintf "Unhandled Exception: %s\n" (Printexc.to_string e);
       exit 1

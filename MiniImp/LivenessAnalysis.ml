@@ -197,10 +197,10 @@ let build_interference_graph (cfg : risc_cfg)
 where the objective is to minimize the number of physical registers used merging virtual registers through coloring: 
 if a color is assigned to a virtual register, all virtual registers with the same color are merged into the same physical register. 
 Interfering nodes cannot share the same color. *)
-let color_graph (graph : interference_graph) (registers : StringSet.t) :
-    coloring =
+let color_graph (graph : interference_graph) (registers : StringSet.t) (n : int)
+    : coloring =
   let coloring = ref [] in
-  let available_colors = List.init 100 (fun i -> "R" ^ string_of_int i) in
+  let available_colors = List.init n (fun i -> "R" ^ string_of_int i) in
 
   (* This loop iterates over registers to assign colors. 
   For a register, obtain its neighbors and determines which colors are already employed. 
@@ -274,7 +274,8 @@ let optimize_cfg (cfg : risc_cfg) (coloring : coloring) (output_var : string) :
   { cfg with blocks = new_blocks }
 
 (* Optimizing function called by Compiler.ml *)
-let optimize_registers (cfg : risc_cfg) (output_var : string) : risc_cfg =
+let optimize_registers (cfg : risc_cfg) (output_var : string) (n : int) :
+    risc_cfg =
   Printf.printf "Beginning of Liveness Analysis...\n";
   let liveness_table = liveness cfg output_var in
 
@@ -284,7 +285,7 @@ let optimize_registers (cfg : risc_cfg) (output_var : string) : risc_cfg =
   in
 
   Printf.printf "Coloring...\n";
-  let coloring = color_graph graph registers in
+  let coloring = color_graph graph registers n in
 
   Printf.printf "Rewriting CFG...\n";
   optimize_cfg cfg coloring output_var
